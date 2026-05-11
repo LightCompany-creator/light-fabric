@@ -131,4 +131,76 @@ Tailwind, Supabase, shadcn/ui. Структура папок по разделу
 
 ---
 
+## 🖥 Локальный запуск (после Шагов 1–5)
+
+```powershell
+# Установка зависимостей (один раз)
+npm install
+
+# 1) Положи в .env.local URL и ключи Supabase (см. .env.example)
+
+# 2) Запусти dev-сервер
+npm run dev
+```
+
+Открой `http://localhost:3000`. Логин одним из тестовых пользователей —
+`foreman@lightflow.test` / `Test123!` (см. скрипт `scripts/seed-users.mjs`).
+
+### Создать тестовых пользователей
+
+```powershell
+node --env-file=.env.local scripts/seed-users.mjs
+```
+
+Скрипт создаёт 4 аккаунта (foreman, technologist, director, accountant)
+и связывает их с записями в `employees`.
+
+### Применить RLS-миграцию
+
+В Supabase Dashboard → **SQL Editor** → **New query** → вставить целиком
+`supabase/migrations/0002_rls_minimal.sql` → **Run**. Без этого технолог
+не сможет редактировать справочники, а бригадир — открывать смены.
+
+---
+
+## 🚀 Деплой на Vercel
+
+### Через интерфейс
+
+1. Запушь репозиторий на GitHub.
+2. На `vercel.com` нажми **Add New… → Project**, выбери репо.
+3. Framework — **Next.js** (определится автоматически).
+4. **Environment Variables** — добавь те же, что в `.env.local`:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY` (нужен только для админ-скриптов в проде)
+5. **Deploy** — через ~1 минуту получишь preview-домен `*.vercel.app`.
+6. **Production** деплой запускается автоматически на push в `main`.
+
+### Свой домен (например `mes.light-c.shop`)
+
+1. В Vercel → проект → **Settings → Domains** → добавь домен.
+2. У регистратора домена пропиши CNAME `mes.light-c.shop → cname.vercel-dns.com`.
+3. Через 5–30 минут домен подключится с HTTPS-сертификатом.
+
+### Обязательная проверка прода
+
+- Залогиниться тестовым пользователем
+- Открыть смену, добавить выработку, закрыть
+- Проверить что партия создалась
+- Скачать XLSX-ведомость из `/reports/payroll`
+
+---
+
+## 📦 Скрипты npm
+
+| Команда | Что делает |
+|---|---|
+| `npm run dev` | Запуск dev-сервера на :3000 (HMR, без оптимизации) |
+| `npm run build` | Прод-билд (проверяет TypeScript и ESLint) |
+| `npm run start` | Запуск прод-билда локально |
+| `npm run lint` | Только ESLint |
+
+---
+
 **Удачи! 🚀**

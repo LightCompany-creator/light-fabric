@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import { ArrowRight } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -10,6 +12,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth";
 import { USER_ROLE_LABELS } from "@/lib/constants";
+import { DirectorDashboard } from "./director-dashboard";
+import { ForemanDashboard } from "./foreman-dashboard";
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -21,6 +25,19 @@ export default async function DashboardPage() {
   const now = new Date();
   const greeting = greetByHour(now.getHours());
   const today = format(now, "d MMMM yyyy 'г.'", { locale: ru });
+
+  let content: React.ReactNode;
+  if (user.role === "director" || user.role === "admin") {
+    content = <DirectorDashboard />;
+  } else if (user.role === "foreman") {
+    content = <ForemanDashboard user={user} />;
+  } else if (user.role === "technologist") {
+    content = <TechnologistDashboard />;
+  } else if (user.role === "accountant") {
+    content = <AccountantDashboard />;
+  } else {
+    content = <UnassignedDashboard />;
+  }
 
   return (
     <div className="space-y-6">
@@ -43,39 +60,76 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <PlaceholderKpi label="Партий в работе" hint="загрузим на неделе 5" />
-        <PlaceholderKpi label="Выпуск сегодня" hint="пар продукции" />
-        <PlaceholderKpi label="ФОТ за день" hint="по закрытым сменам" />
-        <PlaceholderKpi label="Брак" hint="процент за сутки" />
-      </section>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Каркас приложения готов</CardTitle>
-          <CardDescription>
-            Дальше: справочники (Веха 4), смены литейки (Веха 5), движение
-            партий, дашборды и отчёты. Этот dashboard оживёт на Вехе 7.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      {content}
     </div>
   );
 }
 
-function PlaceholderKpi({ label, hint }: { label: string; hint: string }) {
+function TechnologistDashboard() {
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <NavCard href="/catalog/articles" title="Артикулы" desc="Каталог продукции" />
+      <NavCard href="/catalog/rates" title="Расценки" desc="Сдельная зарплата" />
+      <NavCard href="/catalog/norms" title="Нормы расхода" desc="Материалы на пару" />
+      <NavCard href="/catalog/routes" title="Маршруты" desc="Последовательность цехов" />
+    </div>
+  );
+}
+
+function AccountantDashboard() {
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <NavCard
+        href="/reports/payroll"
+        title="Ведомости ЗП"
+        desc="Расчёт сделки за период"
+      />
+      <NavCard
+        href="/reports/materials"
+        title="Расход материалов"
+        desc="Сводка по сырью"
+      />
+      <NavCard
+        href="/reports/production"
+        title="Выпуск продукции"
+        desc="Что произведено"
+      />
+      <NavCard href="/sync" title="Обмен с 1С" desc="XLSX-выгрузки и загрузки" />
+    </div>
+  );
+}
+
+function UnassignedDashboard() {
   return (
     <Card>
-      <CardHeader className="pb-2">
-        <CardDescription>{label}</CardDescription>
-        <CardTitle className="font-mono-tabular text-3xl text-muted-foreground">
-          —
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-xs text-muted-foreground">{hint}</p>
+      <CardContent className="py-12 text-center text-muted-foreground">
+        Роль не назначена — обратитесь к администратору
       </CardContent>
     </Card>
+  );
+}
+
+function NavCard({
+  href,
+  title,
+  desc,
+}: {
+  href: string;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <Link href={href}>
+      <Card className="transition-colors hover:bg-secondary">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            {title}
+            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+          </CardTitle>
+          <CardDescription>{desc}</CardDescription>
+        </CardHeader>
+      </Card>
+    </Link>
   );
 }
 

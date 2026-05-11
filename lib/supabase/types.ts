@@ -40,8 +40,9 @@ export type Database = {
           is_active?: boolean;
           created_at?: string;
         };
+        Relationships: [];
       };
-      articles: {
+articles: {
         Row: {
           id: string;
           code: string;
@@ -87,8 +88,9 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
-      materials: {
+materials: {
         Row: {
           id: string;
           code: string;
@@ -119,8 +121,9 @@ export type Database = {
           is_active?: boolean;
           created_at?: string;
         };
+        Relationships: [];
       };
-      employees: {
+employees: {
         Row: {
           id: string;
           tab_number: string;
@@ -157,8 +160,9 @@ export type Database = {
           hire_date?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
-      rates: {
+rates: {
         Row: {
           id: string;
           workshop_id: string | null;
@@ -195,8 +199,9 @@ export type Database = {
           created_at?: string;
           created_by?: string | null;
         };
+        Relationships: [];
       };
-      norms: {
+norms: {
         Row: {
           id: string;
           article_id: string;
@@ -221,8 +226,9 @@ export type Database = {
           notes?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
-      routes: {
+routes: {
         Row: {
           id: string;
           article_id: string;
@@ -247,8 +253,9 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
-      shifts: {
+shifts: {
         Row: {
           id: string;
           workshop_id: string;
@@ -285,8 +292,9 @@ export type Database = {
           notes?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
-      batches: {
+batches: {
         Row: {
           id: string;
           batch_number: string;
@@ -332,8 +340,9 @@ export type Database = {
           completed_at?: string | null;
           shift_id?: string | null;
         };
+        Relationships: [];
       };
-      shift_outputs: {
+shift_outputs: {
         Row: {
           id: string;
           shift_id: string;
@@ -373,8 +382,9 @@ export type Database = {
           notes?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
-      shift_workers: {
+shift_workers: {
         Row: {
           id: string;
           shift_id: string;
@@ -405,8 +415,9 @@ export type Database = {
           notes?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
-      batch_movements: {
+batch_movements: {
         Row: {
           id: string;
           batch_id: string;
@@ -446,8 +457,9 @@ export type Database = {
           notes?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
-      material_consumption: {
+material_consumption: {
         Row: {
           id: string;
           shift_id: string;
@@ -475,8 +487,9 @@ export type Database = {
           notes?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
-      payroll_lines: {
+payroll_lines: {
         Row: {
           id: string;
           period: string;
@@ -507,8 +520,9 @@ export type Database = {
           exported_at?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
-      sync_log: {
+sync_log: {
         Row: {
           id: string;
           sync_type: string;

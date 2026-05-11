@@ -4,38 +4,36 @@
 
 @layer base {
   :root {
-    /* shadcn/ui — HSL без обёртки hsl() */
-    --background: 217 38% 97%;          /* #F4F7FC — фон страниц */
+    /* shadcn/ui uses raw HSL values without hsl() wrappers. */
+    --background: 217 38% 97%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 217 62% 34%;             /* #214A8C — основной бренд */
+    --primary: 217 62% 34%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 217 50% 94%;           /* #E8EFF8 — очень светлый */
+    --secondary: 217 50% 94%;
     --secondary-foreground: 217 62% 34%;
     --muted: 217 50% 94%;
     --muted-foreground: 215 16% 47%;
-    --accent: 38 92% 50%;               /* #F59E0B — янтарный */
+    --accent: 38 92% 50%;
     --accent-foreground: 222 47% 11%;
-    --destructive: 0 84% 60%;           /* #EF4444 */
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --success: 160 84% 39%;             /* #10B981 */
+    --success: 160 84% 39%;
     --success-foreground: 0 0% 100%;
     --border: 217 30% 88%;
     --input: 217 30% 88%;
     --ring: 217 62% 34%;
     --radius: 0.5rem;
 
-    /* Бренд Light Company (раздел 3 контекста) */
     --brand: #214A8C;
     --brand-dark: #163566;
     --brand-light: #3D6FB8;
     --brand-pale: #E8EFF8;
     --brand-mist: #F4F7FC;
 
-    /* Цвета цехов (раздел 3 контекста) */
     --ws-raw: #8B5CF6;
     --ws-lit: #EF4444;
     --ws-pack: #214A8C;
@@ -46,12 +44,11 @@
     --ws-mark: #6366F1;
     --ws-ship: #10B981;
   }
-}
 
-@layer base {
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv11", "ss01";
@@ -62,6 +59,7 @@
   .text-balance {
     text-wrap: balance;
   }
+
   .font-mono-tabular {
     font-variant-numeric: tabular-nums;
   }

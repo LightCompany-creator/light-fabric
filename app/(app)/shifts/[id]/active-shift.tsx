@@ -19,7 +19,12 @@ import {
 import { CAST_FORMS_OPTIONS, MACHINE_OPTIONS } from "@/lib/constants";
 import { queueAdd, isNetworkError } from "@/lib/offline-queue";
 
-type Article = { id: string; code: string; name: string };
+type Article = {
+  id: string;
+  code: string;
+  name: string;
+  weight_per_pair?: number | null;
+};
 type Employee = { id: string; tab_number: string; full_name: string };
 
 export function AddOutputForm({
@@ -31,7 +36,26 @@ export function AddOutputForm({
 }) {
   const [pending, start] = useTransition();
   const [queueHint, setQueueHint] = useState<string | null>(null);
+  const [selectedArticleId, setSelectedArticleId] = useState<string>("");
+  const [quantity, setQuantity] = useState<string>("");
+  const [weightOverridden, setWeightOverridden] = useState(false);
   const action = addOutputAction.bind(null, shiftId);
+
+  // Автовес: weight_per_pair × quantity. Пользователь может переписать —
+  // тогда автоподстановка перестаёт работать на эту запись.
+  const selectedArticle = articles.find((a) => a.id === selectedArticleId);
+  const wpp = Number(selectedArticle?.weight_per_pair ?? 0);
+  const qty = Number(quantity || 0);
+  const autoWeight =
+    !weightOverridden && wpp > 0 && qty > 0 ? (wpp * qty).toFixed(2) : "";
+
+  const resetForm = () => {
+    setSelectedArticleId("");
+    setQuantity("");
+    setWeightOverridden(false);
+    const f = document.getElementById(`output-form-${shiftId}`);
+    if (f instanceof HTMLFormElement) f.reset();
+  };
 
   const submit = (fd: FormData) => {
     // Если оффлайн или была сетевая ошибка — кладём в очередь сразу.
@@ -44,8 +68,7 @@ export function AddOutputForm({
       });
       queueAdd("addOutput", payload, { shiftId });
       setQueueHint("Сети нет — запись отложена. Отправлю как только связь появится.");
-      const f = document.getElementById(`output-form-${shiftId}`);
-      if (f instanceof HTMLFormElement) f.reset();
+      resetForm();
       return;
     }
 
@@ -53,8 +76,7 @@ export function AddOutputForm({
       try {
         await action(fd);
         setQueueHint(null);
-        const f = document.getElementById(`output-form-${shiftId}`);
-        if (f instanceof HTMLFormElement) f.reset();
+        resetForm();
       } catch (e) {
         if (isNetworkError(e)) {
           const payload: Record<string, string> = {};
@@ -63,8 +85,7 @@ export function AddOutputForm({
           });
           queueAdd("addOutput", payload, { shiftId });
           setQueueHint("Связь оборвалась — запись отложена в очередь.");
-          const f = document.getElementById(`output-form-${shiftId}`);
-          if (f instanceof HTMLFormElement) f.reset();
+          resetForm();
         } else {
           throw e;
         }
@@ -80,7 +101,14 @@ export function AddOutputForm({
     >
       <div className="col-span-2 md:col-span-4 lg:col-span-3">
         <Label htmlFor="article_id">Артикул</Label>
-        <Select name="article_id">
+        <Select
+          name="article_id"
+          value={selectedArticleId}
+          onValueChange={(v) => {
+            setSelectedArticleId(v);
+            setWeightOverridden(false);
+          }}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Выберите артикул" />
           </SelectTrigger>
@@ -111,11 +139,38 @@ export function AddOutputForm({
       </div>
       <div className="lg:col-span-1">
         <Label htmlFor="quantity">Пар</Label>
-        <Input id="quantity" name="quantity" type="number" inputMode="numeric" min={1} required />
+        <Input
+          id="quantity"
+          name="quantity"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          required
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+        />
       </div>
       <div className="lg:col-span-1">
-        <Label htmlFor="weight">Кг</Label>
-        <Input id="weight" name="weight" type="number" inputMode="decimal" step="0.01" />
+        <Label htmlFor="weight" className="flex items-center gap-1">
+          Кг
+          {autoWeight && !weightOverridden ? (
+            <span className="text-[10px] font-normal text-muted-foreground">авто</span>
+          ) : null}
+        </Label>
+        <Input
+          id="weight"
+          name="weight"
+          type="number"
+          inputMode="decimal"
+          step="0.01"
+          value={weightOverridden ? undefined : autoWeight}
+          onChange={(e) => {
+            // Если пользователь ввёл свой вес — отключаем автоподстановку.
+            // Если стёр поле — снова берём авто.
+            setWeightOverridden(e.target.value !== "" && e.target.value !== autoWeight);
+          }}
+          defaultValue={undefined}
+        />
       </div>
       <div className="lg:col-span-1">
         <Label htmlFor="defect_qty">Брак</Label>

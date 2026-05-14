@@ -67,7 +67,7 @@ export default async function ActiveShiftPage({
         .order("created_at"),
       supabase
         .from("articles")
-        .select("id, code, name")
+        .select("id, code, name, weight_per_pair")
         .eq("is_active", true)
         .order("code"),
       supabase
@@ -82,7 +82,10 @@ export default async function ActiveShiftPage({
 
   const outputs = (outsRaw ?? []) as OutputRow[];
   const workers = (workersRaw ?? []) as WorkerRow[];
-  const articles = (artRaw ?? []) as Pick<Tables<"articles">, "id" | "code" | "name">[];
+  const articles = (artRaw ?? []) as Pick<
+    Tables<"articles">,
+    "id" | "code" | "name" | "weight_per_pair"
+  >[];
   const allEmployees = (empRaw ?? []) as (Pick<Tables<"employees">, "id" | "tab_number" | "full_name"> & {
     workshop_id: string | null;
   })[];

@@ -66,3 +66,47 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+/* Тач-устройства: увеличиваем зону нажатия до 44px (Apple HIG / WCAG 2.5.5).
+   Целимся точечно в кнопки и формы — десктоп с мышью не трогаем. */
+@media (pointer: coarse) {
+  button:not([class*="h-"]),
+  [role="button"]:not([class*="h-"]),
+  input:not([type="checkbox"]):not([type="radio"]):not([class*="h-"]),
+  select:not([class*="h-"]),
+  textarea:not([class*="h-"]) {
+    min-height: 44px;
+  }
+
+  /* Кнопки с явной высотой h-9/h-10 — догоняем до 44px */
+  button.h-9,
+  button.h-10,
+  [role="button"].h-9,
+  [role="button"].h-10 {
+    height: 44px;
+  }
+
+  /* Иконочные кнопки */
+  button.h-10.w-10,
+  [role="button"].h-10.w-10 {
+    height: 44px;
+    width: 44px;
+  }
+
+  /* Поля ввода — увеличить отступы и шрифт чтобы было удобно тапать */
+  input[type="text"],
+  input[type="number"],
+  input[type="date"],
+  input[type="email"],
+  input[type="password"] {
+    font-size: 16px; /* iOS Safari не зумит при focus если >= 16px */
+  }
+}
+
+/* PWA в standalone — учесть safe area iPhone/iPad */
+@supports (padding: env(safe-area-inset-top)) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

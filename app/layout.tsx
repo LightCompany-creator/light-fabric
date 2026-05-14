@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 
 import "./globals.css";
+import { PwaRegister } from "@/components/shared/pwa-register";
 
 const inter = Inter({
   subsets: ["latin", "cyrillic"],
@@ -30,6 +31,8 @@ export const viewport: Viewport = {
   themeColor: "#214A8C",
   width: "device-width",
   initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -39,7 +42,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" className={`${inter.variable} ${jetbrainsMono.variable}`}>
-      <body className="font-sans">{children}</body>
+      <body className="font-sans">
+        {children}
+        <PwaRegister />
+      </body>
     </html>
   );
 }

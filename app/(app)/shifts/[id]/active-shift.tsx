@@ -76,15 +76,15 @@ export function AddOutputForm({
       </div>
       <div className="sm:col-span-1">
         <Label htmlFor="quantity">Пар</Label>
-        <Input id="quantity" name="quantity" type="number" min={1} required />
+        <Input id="quantity" name="quantity" type="number" inputMode="numeric" min={1} required />
       </div>
       <div className="sm:col-span-1">
         <Label htmlFor="weight">Кг</Label>
-        <Input id="weight" name="weight" type="number" step="0.01" />
+        <Input id="weight" name="weight" type="number" inputMode="decimal" step="0.01" />
       </div>
       <div className="sm:col-span-1">
         <Label htmlFor="defect_qty">Брак</Label>
-        <Input id="defect_qty" name="defect_qty" type="number" min={0} defaultValue={0} />
+        <Input id="defect_qty" name="defect_qty" type="number" inputMode="numeric" min={0} defaultValue={0} />
       </div>
       <div className="sm:col-span-2">
         <Label htmlFor="machine">Машина</Label>
@@ -104,7 +104,7 @@ export function AddOutputForm({
       </div>
       <div className="sm:col-span-1">
         <Label htmlFor="downtime_min">Простой</Label>
-        <Input id="downtime_min" name="downtime_min" type="number" min={0} defaultValue={0} />
+        <Input id="downtime_min" name="downtime_min" type="number" inputMode="numeric" min={0} defaultValue={0} />
       </div>
       <div className="sm:col-span-2 flex items-end">
         <Button type="submit" disabled={pending} className="w-full">
@@ -177,7 +177,7 @@ export function AddWorkerOperationForm({
       </div>
       <div className="sm:col-span-1">
         <Label htmlFor="qty">Кол-во</Label>
-        <Input id="qty" name="qty" type="number" min={1} required />
+        <Input id="qty" name="qty" type="number" inputMode="numeric" min={1} required />
       </div>
       <div className="sm:col-span-1 flex items-end">
         <Button type="submit" disabled={pending} className="w-full">

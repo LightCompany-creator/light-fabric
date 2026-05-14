@@ -70,7 +70,12 @@ function ImportFormShell({
   action: (formData: FormData) => void;
   error: string | null;
   preview?: { total: number; valid: unknown[]; errors: RowIssue[] };
-  applied?: { inserted: number; updated: number; failed: number };
+  applied?: {
+    inserted: number;
+    updated: number;
+    failed: number;
+    firstError: string | null;
+  };
   requiredColumns: string[];
 }) {
   return (
@@ -110,11 +115,19 @@ function ImportFormShell({
         ) : null}
 
         {applied ? (
-          <p className="flex items-start gap-2 text-sm text-success">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-            Применено: {applied.inserted} новых, {applied.updated} обновлено,{" "}
-            {applied.failed} с ошибкой
-          </p>
+          <div className="space-y-2">
+            <p className="flex items-start gap-2 text-sm text-success">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+              Применено: {applied.inserted} новых, {applied.updated} обновлено,{" "}
+              {applied.failed} с ошибкой
+            </p>
+            {applied.failed > 0 && applied.firstError ? (
+              <p className="flex items-start gap-2 text-sm text-destructive">
+                <X className="mt-0.5 h-4 w-4 shrink-0" />
+                {applied.firstError}
+              </p>
+            ) : null}
+          </div>
         ) : null}
 
         {preview ? (

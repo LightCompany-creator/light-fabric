@@ -13,16 +13,23 @@ import {
   type RowIssue,
 } from "@/lib/services/imports";
 
+type AppliedShape = {
+  inserted: number;
+  updated: number;
+  failed: number;
+  firstError: string | null;
+};
+
 export type EmployeeImportState = {
   error: string | null;
   preview?: ImportPreview<EmployeeImportRow>;
-  applied?: { inserted: number; updated: number; failed: number };
+  applied?: AppliedShape;
 };
 
 export type ArticleImportState = {
   error: string | null;
   preview?: ImportPreview<ArticleImportRow>;
-  applied?: { inserted: number; updated: number; failed: number };
+  applied?: AppliedShape;
 };
 
 async function readFile(formData: FormData): Promise<ArrayBuffer | null> {

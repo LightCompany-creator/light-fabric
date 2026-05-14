@@ -190,10 +190,25 @@ export function parseEmployeesXlsx(buffer: ArrayBuffer): ImportPreview<EmployeeI
   return { total: rows.length, valid, errors };
 }
 
+export type ApplyResult = {
+  inserted: number;
+  updated: number;
+  failed: number;
+  firstError: string | null;
+};
+
+// Распознаём типовую ошибку RLS, чтобы дать понятную подсказку в UI.
+function describeError(message: string): string {
+  if (/row-level security|new row violates row-level security|policy/i.test(message)) {
+    return `${message}. Похоже, у вашей роли нет прав на запись в эту таблицу — войдите как технолог или администратор.`;
+  }
+  return message;
+}
+
 export async function applyEmployeesImport(
   client: SupabaseClient<Database>,
   rows: EmployeeImportRow[],
-): Promise<{ inserted: number; updated: number; failed: number }> {
+): Promise<ApplyResult> {
   // Получаем maps workshops code → id
   const { data: wsRaw } = await client.from("workshops").select("id, code");
   const codeToId = new Map<string, string>();
@@ -210,6 +225,7 @@ export async function applyEmployeesImport(
   let inserted = 0;
   let updated = 0;
   let failed = 0;
+  let firstError: string | null = null;
 
   for (const r of rows) {
     const workshopId = r.workshop_code ? codeToId.get(r.workshop_code) ?? null : null;
@@ -227,6 +243,7 @@ export async function applyEmployeesImport(
       .upsert(payload as never, { onConflict: "tab_number" });
     if (error) {
       failed += 1;
+      if (!firstError) firstError = describeError(error.message);
     } else if (existing.has(r.tab_number)) {
       updated += 1;
     } else {
@@ -240,10 +257,10 @@ export async function applyEmployeesImport(
     status: failed === 0 ? "success" : "partial",
     records_count: rows.length,
     errors_count: failed,
-    details: { inserted, updated, failed } as never,
+    details: { inserted, updated, failed, firstError } as never,
   } as never);
 
-  return { inserted, updated, failed };
+  return { inserted, updated, failed, firstError };
 }
 
 // =============================================================
@@ -342,7 +359,7 @@ export function parseArticlesXlsx(buffer: ArrayBuffer): ImportPreview<ArticleImp
 export async function applyArticlesImport(
   client: SupabaseClient<Database>,
   rows: ArticleImportRow[],
-): Promise<{ inserted: number; updated: number; failed: number }> {
+): Promise<ApplyResult> {
   const { data: existingRaw } = await client.from("articles").select("code");
   const existing = new Set<string>(
     ((existingRaw ?? []) as { code: string }[]).map((a) => a.code),
@@ -351,6 +368,7 @@ export async function applyArticlesImport(
   let inserted = 0;
   let updated = 0;
   let failed = 0;
+  let firstError: string | null = null;
 
   for (const r of rows) {
     const payload = {
@@ -365,9 +383,14 @@ export async function applyArticlesImport(
     const { error } = await client
       .from("articles")
       .upsert(payload as never, { onConflict: "code" });
-    if (error) failed += 1;
-    else if (existing.has(r.code)) updated += 1;
-    else inserted += 1;
+    if (error) {
+      failed += 1;
+      if (!firstError) firstError = describeError(error.message);
+    } else if (existing.has(r.code)) {
+      updated += 1;
+    } else {
+      inserted += 1;
+    }
   }
 
   await client.from("sync_log").insert({
@@ -376,8 +399,8 @@ export async function applyArticlesImport(
     status: failed === 0 ? "success" : "partial",
     records_count: rows.length,
     errors_count: failed,
-    details: { inserted, updated, failed } as never,
+    details: { inserted, updated, failed, firstError } as never,
   } as never);
 
-  return { inserted, updated, failed };
+  return { inserted, updated, failed, firstError };
 }

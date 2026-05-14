@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LightFlow — внедрение MES</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="deck-stage.js"></script>
+<style>
+  :root {
+    --brand: #214A8C;
+    --brand-dark: #163566;
+    --brand-light: #3B6FBF;
+    --pale: #E8EFF8;
+    --mist: #F4F7FC;
+    --ink: #0F1B2D;
+    --ink2: #344563;
+    --dim: #6B7C93;
+    --soft: #9AABBF;
+    --border: #D9E2EE;
+    --border-soft: #E6ECF4;
+    --success: #10B981;
+    --success-dark: #065F46;
+    --success-bg: #D1FAE5;
+    --amber: #F59E0B;
+    --amber-bg: #FEF3C7;
+    --amber-dark: #92400E;
+    --danger: #EF4444;
+    --danger-bg: #FEE2E2;
+    --danger-dark: #991B1B;
+    --purple: #7C3AED;
+    --mono: 'JetBrains Mono', monospace;
+  }
+  html, body { margin: 0; padding: 0; background: #1a2030; font-family: 'Inter', system-ui, sans-serif; color: var(--ink); }
+  deck-stage { background: #1a2030; }
+  deck-stage > section {
+    background: #fff;
+    color: var(--ink);
+    padding: 80px;
+    box-sizing: border-box;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--dim);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .slide-no {
+    position: absolute;
+    bottom: 30px;
+    right: 80px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--soft);
+    letter-spacing: 0.1em;
+  }
+  .slide-tag {
+    position: absolute;
+    top: 40px;
+    left: 80px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--soft);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .slide-tag .logo-dot { width: 22px; height: 22px; background: var(--brand); border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 12px; font-family: 'Inter'; }
+  h1, h2, h3 { margin: 0; letter-spacing: -0.025em; line-height: 1; }
+  .h-mega { font-size: 96px; font-weight: 900; letter-spacing: -0.04em; line-height: 0.95; }
+  .h-1 { font-size: 72px; font-weight: 900; letter-spacing: -0.035em; line-height: 1; }
+  .h-2 { font-size: 56px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; }
+  .h-3 { font-size: 36px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+
+  /* ============ SLIDE 1 — TITLE ============ */
+  .s-title { background: var(--brand); color: white; padding: 96px; }
+  .s-title .grid-bg {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 80px 80px;
+    mask-image: radial-gradient(ellipse at 70% 50%, black 30%, transparent 75%);
+  }
+  .s-title .corner {
+    position: absolute; top: 96px; left: 96px;
+    font-family: var(--mono); font-size: 14px;
+    letter-spacing: 0.15em; font-weight: 700;
+    opacity: 0.6;
+  }
+  .s-title .logo-mark {
+    width: 72px; height: 72px; border-radius: 18px; background: white;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--brand); margin-bottom: 38px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+  }
+  .s-title h1 {
+    font-size: 152px; font-weight: 900; letter-spacing: -0.045em;
+    line-height: 0.9; margin-bottom: 28px;
+  }
+  .s-title h1 .accent { color: #FFC247; }
+  .s-title .sub {
+    font-size: 28px; font-weight: 500; opacity: 0.86;
+    max-width: 760px; line-height: 1.35;
+  }
+  .s-title .foot {
+    position: absolute; bottom: 96px; left: 96px;
+    display: flex; align-items: center; gap: 18px;
+    font-family: var(--mono); font-size: 14px; font-weight: 600; letter-spacing: 0.1em;
+    opacity: 0.8; text-transform: uppercase;
+  }
+  .s-title .foot .dot { width: 4px; height: 4px; border-radius: 50%; background: rgba(255,255,255,0.5); }
+  .s-title .stamp {
+    position: absolute; bottom: 96px; right: 96px;
+    display: flex; flex-direction: column; gap: 6px; text-align: right;
+    font-family: var(--mono); font-size: 14px; letter-spacing: 0.08em;
+    opacity: 0.7;
+  }
+
+  /* ============ SHARED LAYOUT BITS ============ */
+  .two-col { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 64px; flex: 1; align-items: center; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 32px; }
+  .four-col { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 22px; }
+  .lede { font-size: 22px; line-height: 1.5; color: var(--ink2); max-width: 720px; margin-top: 26px; }
+
+  /* ============ SLIDE 2 — PROBLEM ============ */
+  .problem-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 20px; margin-top: 36px; }
+  .problem-list li {
+    display: flex; align-items: flex-start; gap: 22px;
+    padding: 22px 24px; background: var(--mist); border-radius: 14px;
+    border-left: 4px solid var(--danger);
+  }
+  .problem-list .n {
+    width: 36px; height: 36px; border-radius: 9px;
+    background: white; color: var(--danger);
+    font-weight: 800; font-size: 16px; font-family: var(--mono);
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0; border: 1.5px solid var(--danger);
+  }
+  .problem-list .txt { font-size: 22px; font-weight: 600; color: var(--ink); line-height: 1.35; }
+  .notebook {
+    background: linear-gradient(135deg, #F5EBD0 0%, #E8D9B0 100%);
+    border-radius: 18px; padding: 36px 38px;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.3);
+    transform: rotate(2deg);
+    position: relative; aspect-ratio: 0.78;
+    background-image:
+      repeating-linear-gradient(to bottom, transparent 0px, transparent 30px, rgba(139,69,19,0.18) 30px, rgba(139,69,19,0.18) 31px),
+      linear-gradient(135deg, #F5EBD0 0%, #E8D9B0 100%);
+  }
+  .notebook::before {
+    content: '';
+    position: absolute; left: 36px; top: 0; bottom: 0; width: 1.5px;
+    background: #D9444433;
+  }
+  .notebook .scribble {
+    font-family: 'Caveat', 'Comic Sans MS', cursive;
+    font-size: 28px; color: #2A4A7A; padding-left: 22px; line-height: 1.45;
+    font-weight: 600;
+  }
+  .notebook .scribble .strike { text-decoration: line-through; text-decoration-color: #D94444; opacity: 0.7; }
+  .notebook .scribble .msg { color: #D94444; font-weight: 700; }
+  .notebook .corner-fold {
+    position: absolute; top: 0; right: 0; width: 56px; height: 56px;
+    background: linear-gradient(135deg, transparent 50%, #C0AE85 50%);
+    border-bottom-left-radius: 18px;
+  }
+
+  /* ============ SLIDE 3 — SOLUTION ============ */
+  .solution-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 44px; }
+  .solution-card {
+    padding: 30px; background: var(--mist); border-radius: 18px;
+    display: flex; gap: 22px; align-items: flex-start;
+    border: 1.5px solid var(--border);
+    transition: all 0.2s;
+  }
+  .solution-card .icon-box {
+    width: 58px; height: 58px; border-radius: 14px;
+    background: var(--brand); color: white;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .solution-card h3 { font-size: 24px; font-weight: 800; color: var(--ink); margin-bottom: 8px; }
+  .solution-card p { margin: 0; font-size: 16px; color: var(--ink2); line-height: 1.5; }
+
+  /* ============ SLIDE 4 — FLOW ============ */
+  .shop-flow {
+    display: flex; align-items: stretch; gap: 6px; margin-top: 56px;
+    flex: 1; max-height: 280px;
+  }
+  .shop {
+    flex: 1; min-width: 0;
+    border-radius: 14px; padding: 24px 16px;
+    color: white; position: relative;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .shop .num-l { font-family: var(--mono); font-size: 13px; font-weight: 800; opacity: 0.85; letter-spacing: 0.1em; }
+  .shop .name { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.15; margin-top: 14px; }
+  .shop .meta { font-family: var(--mono); font-size: 11px; opacity: 0.8; margin-top: 8px; font-weight: 600; letter-spacing: 0.05em; }
+  .shop.dispatch::after {
+    content: 'ДИСПЕТЧЕР';
+    position: absolute; top: -12px; left: 12px; right: 12px;
+    background: #FFC247; color: var(--brand);
+    font-family: var(--mono); font-size: 10px; font-weight: 800;
+    padding: 4px 8px; border-radius: 5px;
+    letter-spacing: 0.12em; text-align: center;
+  }
+  .flow-caption {
+    margin-top: 38px; padding: 22px 28px; background: var(--mist);
+    border-radius: 14px; border-left: 4px solid #FFC247;
+    display: flex; align-items: center; gap: 18px;
+  }
+  .flow-caption .star { font-size: 22px; color: #F59E0B; }
+  .flow-caption .text { font-size: 18px; color: var(--ink2); line-height: 1.4; }
+  .flow-caption .text strong { color: var(--ink); font-weight: 800; }
+
+  /* ============ SLIDE 5 — SCREENS ============ */
+  .screens { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 22px; margin-top: 44px; flex: 1; align-items: stretch; }
+  .screen {
+    background: white; border-radius: 14px; border: 1.5px solid var(--border);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    box-shadow: 0 12px 24px -10px rgba(15,27,45,0.15);
+  }
+  .screen .thumb {
+    height: 240px; background: var(--mist); position: relative; overflow: hidden;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .screen .footer { padding: 18px 20px; }
+  .screen .footer .label { font-family: var(--mono); font-size: 11px; color: var(--dim); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px; }
+  .screen .footer h4 { margin: 0; font-size: 17px; font-weight: 800; color: var(--ink); letter-spacing: -0.01em; }
+  .screen .footer p { margin: 6px 0 0; font-size: 13px; color: var(--dim); line-height: 1.4; }
+
+  /* Screen mini mockups */
+  .mock-bars { padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+  .mock-bars .b { height: 8px; background: var(--brand); border-radius: 2px; opacity: 0.18; }
+  .mock-bars .b.lg { height: 14px; opacity: 0.32; width: 60%; }
+  .mock-bars .b.med { width: 80%; }
+
+  /* ============ SLIDE 6 — ROADMAP ============ */
+  .roadmap {
+    display: flex; gap: 4px; align-items: stretch;
+    margin-top: 56px; height: 240px;
+  }
+  .phase {
+    border-radius: 16px; padding: 28px 24px;
+    color: white; flex-shrink: 0;
+    display: flex; flex-direction: column; justify-content: space-between;
+    position: relative;
+  }
+  .phase .num-tag { font-family: var(--mono); font-size: 13px; font-weight: 800; opacity: 0.85; letter-spacing: 0.12em; }
+  .phase .weeks { font-family: var(--mono); font-size: 64px; font-weight: 900; line-height: 0.9; letter-spacing: -0.04em; margin-top: 8px; }
+  .phase .weeks .unit { font-size: 22px; font-weight: 700; opacity: 0.8; margin-left: 6px; letter-spacing: 0; }
+  .phase .name { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.15; margin-top: 14px; }
+  .phase .detail { font-size: 13px; opacity: 0.86; margin-top: 10px; line-height: 1.5; }
+  .roadmap-axis { display: flex; align-items: center; justify-content: space-between; margin-top: 24px; font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--dim); letter-spacing: 0.1em; }
+  .roadmap-axis .start, .roadmap-axis .end { display: inline-flex; align-items: center; gap: 8px; }
+  .roadmap-axis .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--brand); }
+
+  /* ============ SLIDE 7 — WINS ============ */
+  .wins { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 28px; flex: 1; align-items: stretch; margin-top: 44px; }
+  .win {
+    padding: 44px 36px; border-radius: 24px;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .win .big {
+    font-family: var(--mono);
+    font-size: 156px; font-weight: 900;
+    letter-spacing: -0.06em; line-height: 0.9;
+  }
+  .win .label { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; margin-top: 14px; line-height: 1.25; }
+  .win .meta { font-size: 14px; font-family: var(--mono); font-weight: 600; opacity: 0.7; margin-top: 12px; line-height: 1.4; letter-spacing: 0.02em; }
+
+  /* ============ SLIDE 8 — BUDGET ============ */
+  .budget-table {
+    margin-top: 44px;
+    background: white; border: 1.5px solid var(--border);
+    border-radius: 16px; overflow: hidden;
+  }
+  .budget-row {
+    display: grid; grid-template-columns: 60px 1fr 280px 160px;
+    padding: 22px 30px; align-items: center; gap: 24px;
+    border-top: 1px solid var(--border-soft);
+  }
+  .budget-row:first-child { border-top: none; background: var(--mist); }
+  .budget-row .idx { font-family: var(--mono); font-size: 13px; color: var(--dim); font-weight: 700; }
+  .budget-row .what { font-size: 20px; font-weight: 700; color: var(--ink); }
+  .budget-row .what .sub { display: block; font-size: 14px; font-weight: 500; color: var(--dim); margin-top: 4px; }
+  .budget-row .detail { font-size: 14px; color: var(--ink2); font-family: var(--mono); font-weight: 600; }
+  .budget-row .cost { font-family: var(--mono); font-size: 22px; font-weight: 800; color: var(--brand); text-align: right; }
+  .budget-row .cost .small { display: block; font-size: 12px; font-weight: 600; color: var(--dim); margin-top: 4px; }
+  .budget-row.total { background: var(--brand); color: white; }
+  .budget-row.total .what, .budget-row.total .cost { color: white; }
+  .budget-row.total .what .sub { color: rgba(255,255,255,0.7); }
+  .budget-row.total .cost { font-size: 28px; }
+
+  /* ============ SLIDE 9 — RISKS ============ */
+  .risk-table { margin-top: 36px; background: white; border-radius: 16px; border: 1.5px solid var(--border); overflow: hidden; }
+  .risk-head {
+    display: grid; grid-template-columns: 60px 1fr 1fr;
+    padding: 16px 28px; background: var(--mist);
+    gap: 24px; font-family: var(--mono); font-size: 12px; font-weight: 800;
+    color: var(--dim); letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .risk-row {
+    display: grid; grid-template-columns: 60px 1fr 1fr;
+    padding: 26px 28px; border-top: 1px solid var(--border-soft);
+    gap: 24px; align-items: flex-start;
+  }
+  .risk-row .badge {
+    width: 36px; height: 36px; border-radius: 9px;
+    background: var(--amber-bg); color: var(--amber-dark);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-weight: 800; font-size: 14px;
+  }
+  .risk-row .r-title { font-size: 19px; font-weight: 700; color: var(--ink); line-height: 1.3; }
+  .risk-row .r-detail { font-size: 14px; color: var(--dim); margin-top: 6px; line-height: 1.45; }
+  .risk-row .solution { display: flex; align-items: flex-start; gap: 12px; }
+  .risk-row .solution .arrow {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: var(--success-bg); color: var(--success-dark);
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .risk-row .solution .s-text { font-size: 16px; color: var(--ink2); font-weight: 600; line-height: 1.4; }
+  .risk-row .solution .s-text strong { color: var(--ink); }
+
+  /* ============ SLIDE 10 — ASK ============ */
+  .ask-wrap { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 56px; flex: 1; align-items: center; }
+  .ask-list { display: flex; flex-direction: column; gap: 14px; margin-top: 32px; }
+  .ask-item {
+    display: flex; align-items: center; gap: 22px;
+    padding: 22px 24px; background: var(--mist); border-radius: 14px;
+    border-left: 4px solid var(--success);
+  }
+  .ask-item .check {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: var(--success); color: white;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .ask-item .ti { font-size: 19px; font-weight: 700; color: var(--ink); line-height: 1.3; }
+  .ask-item .ti .det { display: block; font-size: 13px; color: var(--dim); font-weight: 500; margin-top: 4px; }
+  .start-card {
+    background: var(--brand); color: white; border-radius: 24px;
+    padding: 56px 48px; position: relative; overflow: hidden;
+  }
+  .start-card::before {
+    content: ''; position: absolute; top: -60px; right: -60px;
+    width: 200px; height: 200px; border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+  }
+  .start-card .eb { font-family: var(--mono); font-size: 13px; font-weight: 800; letter-spacing: 0.14em; opacity: 0.7; }
+  .start-card .when { font-size: 64px; font-weight: 900; letter-spacing: -0.035em; line-height: 1.0; margin: 18px 0 8px; }
+  .start-card .date { font-family: var(--mono); font-size: 22px; font-weight: 700; opacity: 0.85; }
+  .start-card .calendar {
+    margin-top: 36px; display: flex; gap: 6px;
+  }
+  .start-card .cal-cell {
+    flex: 1; padding: 12px 0; border-radius: 8px;
+    background: rgba(255,255,255,0.1); text-align: center;
+    font-family: var(--mono); font-size: 12px; font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+  .start-card .cal-cell.active { background: #FFC247; color: var(--brand); }
+  .start-card .cal-cell .d { display: block; font-size: 18px; margin-top: 4px; font-weight: 900; }
+
+  /* small svg icon helper */
+  .ic { display: inline-flex; }
+</style>
+</head>
+<body>
+
+<deck-stage width="1920" height="1080">
+
+<!-- ============ 1. TITLE ============ -->
+<section class="s-title" data-screen-label="01 · Title">
+  <div class="grid-bg"></div>
+  <div class="corner">LIGHT COMPANY · 2026 · INTERNAL PRESENTATION</div>
+  <div style="flex:1; display:flex; flex-direction: column; justify-content: center; position: relative;">
+    <div class="logo-mark">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 21h18M5 21V10l4 3V10l4 3V10l4 3v8"/>
+      </svg>
+    </div>
+    <h1>Light<span class="accent">Flow</span></h1>
+    <div class="sub">Система оперативного учёта производства<br/>для обувной фабрики «Заря»</div>
+  </div>
+  <div class="foot">
+    <span>Light Company</span><span class="dot"></span><span>2026</span><span class="dot"></span><span>MES Pilot Proposal</span>
+  </div>
+  <div class="stamp">
+    <span>Версия 1.0</span>
+    <span style="opacity:0.5">прот. № LC-MES-001</span>
+  </div>
+</section>
+
+<!-- ============ 2. PROBLEM ============ -->
+<section data-screen-label="02 · Problem">
+  <div class="slide-tag"><span class="logo-dot">L</span><span>01 — ПРОБЛЕМА</span></div>
+  <div class="two-col" style="margin-top: 40px;">
+    <div>
+      <span class="eyebrow">Текущее состояние</span>
+      <h2 class="h-1" style="margin-top: 16px; max-width: 760px;">Сегодня учёт ведётся <span style="color: var(--danger);">в тетрадях</span>.</h2>
+      <ul class="problem-list">
+        <li><span class="n">01</span><span class="txt">Невозможно увидеть остатки в реальном времени</span></li>
+        <li><span class="n">02</span><span class="txt">Зарплата считается вручную, ошибки в расчётах</span></li>
+        <li><span class="n">03</span><span class="txt">Партии теряются между цехами</span></li>
+        <li><span class="n">04</span><span class="txt">Директор узнаёт о проблемах поздно</span></li>
+      </ul>
+    </div>
+    <div style="display:flex; align-items: center; justify-content: center; padding: 20px;">
+      <div class="notebook">
+        <div class="corner-fold"></div>
+        <div class="scribble">
+          Швейка<br/>
+          12.05.26<br/>
+          <br/>
+          Аляска — <span class="strike">42</span> 48 пар<br/>
+          Галоши — 24 пары<br/>
+          Брак — <span class="strike">3</span> 2 пары<br/>
+          <br/>
+          <span class="msg">??? сколько передали</span><br/>
+          <span class="msg">в клеевой ???</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-no">02 / 10</div>
+</section>
+
+<!-- ============ 3. SOLUTION ============ -->
+<section data-screen-label="03 · Solution">
+  <div class="slide-tag"><span class="logo-dot">L</span><span>02 — РЕШЕНИЕ</span></div>
+  <div style="margin-top: 40px;">
+    <span class="eyebrow">Что мы строим</span>
+    <h2 class="h-1" style="margin-top: 16px; max-width: 1100px;">
+      LightFlow — <span style="color: var(--brand);">цифровой контур</span> производства.
+    </h2>
+    <p class="lede">Один контур. Каждая партия видна. Каждая смена записана. Каждый рубль ФОТ посчитан.</p>
+  </div>
+  <div class="solution-grid">
+    <div class="solution-card">
+      <div class="icon-box">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
+      </div>
+      <div>
+        <h3>Все смены в одной системе</h3>
+        <p>Бригадир закрывает смену с планшета. Цифры сразу в общем контуре.</p>
+      </div>
+    </div>
+    <div class="solution-card">
+      <div class="icon-box">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      </div>
+      <div>
+        <h3>Партии видно от литейки до склада</h3>
+        <p>Каждая партия — QR-код. Движение между 9 цехами фиксируется автоматически.</p>
+      </div>
+    </div>
+    <div class="solution-card">
+      <div class="icon-box">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h7a4 4 0 0 1 0 8H6"/><line x1="3" y1="12" x2="13" y2="12"/><line x1="6" y1="4" x2="6" y2="20"/><line x1="3" y1="16" x2="11" y2="16"/></svg>
+      </div>
+      <div>
+        <h3>Зарплата считается автоматически</h3>
+        <p>По расценкам и фактическому выпуску. Файл в формате 1С — одним кликом.</p>
+      </div>
+    </div>
+    <div class="solution-card">
+      <div class="icon-box">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+      </div>
+      <div>
+        <h3>Директор видит пульс 24/7</h3>
+        <p>Сводка по цехам, выпуск, брак, ФОТ — на дашборде в реальном времени.</p>
+      </div>
+    </div>
+  </div>
+  <div class="slide-no">03 / 10</div>
+</section>
+
+<!-- ============ 4. FLOW ============ -->
+<section data-screen-label="04 · How It Works">
+  <div class="slide-tag"><span class="logo-dot">L</span><span>03 — КАК ЭТО РАБОТАЕТ</span></div>
+  <div style="margin-top: 40px;">
+    <span class="eyebrow">Производственный поток</span>
+    <h2 class="h-1" style="margin-top: 16px;">9 цехов · 1 контур · QR-код на каждой партии</h2>
+  </div>
+  <div class="shop-flow">
+    <div class="shop" style="background: #6366F1;"><div><div class="num-l">01</div><div class="name">Подгот.</div></div><div class="meta">кройка ЭВА</div></div>
+    <div class="shop" style="background: #8B5CF6;"><div><div class="num-l">02</div><div class="name">Литейка</div></div><div class="meta">3 машины ИЛМ</div></div>
+    <div class="shop" style="background: #EC4899;"><div><div class="num-l">03</div><div class="name">Клеевой</div></div><div class="meta">проклейка</div></div>
+    <div class="shop" style="background: #F43F5E;"><div><div class="num-l">04</div><div class="name">Швейка</div></div><div class="meta">4 бригады</div></div>
+    <div class="shop" style="background: #F97316;"><div><div class="num-l">05</div><div class="name">Окраска</div></div><div class="meta">по артикулу</div></div>
+    <div class="shop" style="background: #F59E0B;"><div><div class="num-l">06</div><div class="name">Сборка</div></div><div class="meta">фурнитура</div></div>
+    <div class="shop" style="background: #10B981;"><div><div class="num-l">07</div><div class="name">ОТК</div></div><div class="meta">контроль</div></div>
+    <div class="shop dispatch" style="background: var(--brand);"><div><div class="num-l">08</div><div class="name">Упаковка</div></div><div class="meta">маршрут партий</div></div>
+    <div class="shop" style="background: #0F1B2D;"><div><div class="num-l">09</div><div class="name">Склад</div></div><div class="meta">отгрузка</div></div>
+  </div>
+  <div class="flow-caption">
+    <div class="star">★</div>
+    <div class="text"><strong>Упаковка — диспетчер.</strong> Распределяет партии по маршрутам и решает, какой артикул идёт в какой цех. Сейчас эту роль выполняет бригадир упаковки.</div>
+  </div>
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 28px; font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--dim); letter-spacing: 0.1em;">
+    <span>СЫРЬЁ ●</span>
+    <span style="opacity:0.4">▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬</span>
+    <span>● ГОТОВАЯ ПРОДУКЦИЯ</span>
+  </div>
+  <div class="slide-no">04 / 10</div>
+</section>
+
+<!-- ============ 5. SCREENS ============ -->
+<section data-screen-label="05 · Key Screens">
+  <div class="slide-tag"><span class="logo-dot">L</span><span>04 — КЛЮЧЕВЫЕ ЭКРАНЫ</span></div>
+  <div style="margin-top: 40px;">
+    <span class="eyebrow">Готовые макеты · 4 направления</span>
+    <h2 class="h-1" style="margin-top: 16px;">От бригадира до бухгалтера — каждому свой экран</h2>
+  </div>
+  <div class="screens">
+    <!-- Screen 1: Shift Close -->
+    <div class="screen">
+      <div class="thumb" style="background: linear-gradient(135deg, #214A8C 0%, #163566 100%);">
+        <div style="padding: 18px; color: white;">
+          <div style="font-family: var(--mono); font-size: 9px; opacity: 0.7; letter-spacing: 0.15em;">СМЕНА 1 · ШВЕЙКА</div>
+          <div style="font-family: var(--mono); font-size: 36px; font-weight: 800; margin-top: 8px; letter-spacing: -0.02em;">132</div>
+          <div style="font-size: 11px; opacity: 0.8;">пары выпущено</div>
+          <div style="margin-top: 14px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 3px; overflow: hidden;">
+            <div style="width: 76%; height: 100%; background: #FFC247;"></div>
+          </div>
+          <div style="margin-top: 18px; padding: 10px; background: rgba(255,255,255,0.12); border-radius: 8px;">
+            <div style="font-size: 10px; opacity: 0.8;">ЗАКРЫТЬ СМЕНУ →</div>
+          </div>
+        </div>
+      </div>
+      <div class="footer">
+        <div class="label">Бригадир · моб</div>
+        <h4>Закрытие смены</h4>
+        <p>Пары · брак · бригада · ФОТ — за 5 минут с планшета.</p>
+      </div>
+    </div>
+    <!-- Screen 2: Batches list -->
+    <div class="screen">
+      <div class="thumb" style="background: white;">
+        <div style="padding: 18px;">
+          <div style="font-family: var(--mono); font-size: 9px; color: var(--dim); letter-spacing: 0.15em; font-weight: 700;">В РАБОТЕ · 14</div>
+          <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px;">
+            <div style="padding: 8px 10px; background: var(--pale); border-radius: 6px; display: flex; gap: 6px; align-items: center;">
+              <span style="width:6px;height:6px;background:var(--brand);border-radius:50%"></span>
+              <span style="font-family:var(--mono);font-size:10px;font-weight:700">ШВ-120526-04</span>
+              <span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--dim)">48 пар</span>
+            </div>
+            <div style="padding: 8px 10px; background: var(--success-bg); border-radius: 6px; display: flex; gap: 6px; align-items: center;">
+              <span style="width:6px;height:6px;background:var(--success);border-radius:50%"></span>
+              <span style="font-family:var(--mono);font-size:10px;font-weight:700">КЛ-120526-03</span>
+              <span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--dim)">60 пар</span>
+            </div>
+            <div style="padding: 8px 10px; background: var(--mist); border-radius: 6px; display: flex; gap: 6px; align-items: center;">
+              <span style="width:6px;height:6px;background:var(--soft);border-radius:50%"></span>
+              <span style="font-family:var(--mono);font-size:10px;font-weight:700">ЛИТ-120526-02</span>
+              <span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--dim)">120 пар</span>
+            </div>
+            <div style="padding: 8px 10px; background: var(--amber-bg); border-radius: 6px; display: flex; gap: 6px; align-items: center;">
+              <span style="width:6px;height:6px;background:var(--amber);border-radius:50%"></span>
+              <span style="font-family:var(--mono);font-size:10px;font-weight:700">ОТК-120526-01</span>
+              <span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--dim)">+2 брак</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="footer">
+        <div class="label">Мастер · веб</div>
+        <h4>Журнал партий</h4>
+        <p>Все 14 партий с маршрутом, статусом и QR-кодом.</p>
+      </div>
+    </div>
+    <!-- Screen 3: Director dashboard -->
+    <div class="screen">
+      <div class="thumb" style="background: var(--mist);">
+        <div style="padding: 16px;">
+          <div style="font-family: var(--mono); font-size: 9px; color: var(--dim); letter-spacing: 0.15em; font-weight: 700;">МАЙ 2026 · ВЫПУСК</div>
+          <div style="font-family: var(--mono); font-size: 32px; font-weight: 900; color: var(--ink); margin-top: 6px; letter-spacing: -0.02em;">28 750</div>
+          <div style="font-size: 10px; color: var(--success-dark); font-weight: 700; margin-top: 2px;">↑ +8.4% к апрелю</div>
+          <svg viewBox="0 0 200 50" style="margin-top: 12px; width: 100%; height: 60px;">
+            <defs>
+              <linearGradient id="dg" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#214A8C" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="#214A8C" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path d="M 5 35 L 35 28 L 65 22 L 95 30 L 125 16 L 155 12 L 195 6 L 195 50 L 5 50 Z" fill="url(#dg)"/>
+            <path d="M 5 35 L 35 28 L 65 22 L 95 30 L 125 16 L 155 12 L 195 6" stroke="#214A8C" stroke-width="2" fill="none"/>
+          </svg>
+          <div style="display:flex; gap: 4px; margin-top: 8px;">
+            <div style="flex:1; height: 4px; background: var(--brand); border-radius:2px"></div>
+            <div style="flex:0.8; height: 4px; background: var(--brand); opacity:0.7; border-radius:2px"></div>
+            <div style="flex:0.9; height: 4px; background: var(--brand); opacity:0.5; border-radius:2px"></div>
+          </div>
+        </div>
+      </div>
+      <div class="footer">
+        <div class="label">Директор · веб</div>
+        <h4>Дашборд</h4>
+        <p>KPI, графики, аномалии — пульс завода 24/7.</p>
+      </div>
+    </div>
+    <!-- Screen 4: Payroll -->
+    <div class="screen">
+      <div class="thumb" style="background: white;">
+        <div style="padding: 16px;">
+          <div style="font-family: var(--mono); font-size: 9px; color: var(--dim); letter-spacing: 0.15em; font-weight: 700;">ВЕДОМОСТЬ МАЙ</div>
+          <div style="font-family: var(--mono); font-size: 24px; font-weight: 900; color: var(--ink); margin-top: 4px; letter-spacing: -0.02em;">1 247 850 ₽</div>
+          <div style="font-size: 10px; color: var(--dim);">42 работника · 9 цехов</div>
+          <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 5px; font-family: var(--mono); font-size: 9px;">
+            <div style="display: flex; justify-content: space-between;"><span style="color:var(--ink);font-weight:600">Литейка</span><span style="color:var(--brand);font-weight:800">214 320 ₽</span></div>
+            <div style="display: flex; justify-content: space-between;"><span style="color:var(--ink);font-weight:600">Клеевой</span><span style="color:var(--brand);font-weight:800">186 740 ₽</span></div>
+            <div style="display: flex; justify-content: space-between;"><span style="color:var(--ink);font-weight:600">Швейка</span><span style="color:var(--brand);font-weight:800">298 510 ₽</span></div>
+            <div style="display: flex; justify-content: space-between;"><span style="color:var(--ink);font-weight:600">ОТК</span><span style="color:var(--brand);font-weight:800">96 280 ₽</span></div>
+          </div>
+          <div style="margin-top: 12px; padding: 6px 10px; background: #107C41; color: white; border-radius: 6px; font-size: 10px; font-weight: 700; text-align: center;">⬇ Скачать XLSX для 1С</div>
+        </div>
+      </div>
+      <div class="footer">
+        <div class="label">Бухгалтер · веб</div>
+        <h4>Ведомость</h4>
+        <p>Авто-расчёт по расценкам. Экспорт в 1С.</p>
+      </div>
+    </div>
+  </div>
+  <div class="slide-no">05 / 10</div>
+</section>
+
+<!-- ============ 6. ROADMAP ============ -->
+<section data-screen-label="06 · Roadmap">
+  <div class="slide-tag"><span class="logo-dot">L</span><span>05 — ROADMAP</span></div>
+  <div style="margin-top: 40px;">
+    <span class="eyebrow">10 недель · 4 фазы</span>
+    <h2 class="h-1" style="margin-top: 16px;">От пилота в литейке — до полного покрытия и 1С</h2>
+  </div>
+  <div class="roadmap">
+    <div class="phase" style="background: var(--brand); flex: 3;">
+      <div>
+        <div class="num-tag">ФАЗА 01</div>
+        <div class="weeks">3<span class="unit">нед</span></div>
+      </div>
+      <div>
+        <div class="name">Литейка</div>
+        <div class="detail">MVP: смены, партии, QR-коды.<br/>1 цех, 1 бригада, 8 человек.</div>
+      </div>
+    </div>
+    <div class="phase" style="background: var(--brand-light); flex: 2;">
+      <div>
+        <div class="num-tag">ФАЗА 02</div>
+        <div class="weeks">2<span class="unit">нед</span></div>
+      </div>
+      <div>
+        <div class="name">+ Упаковка</div>
+        <div class="detail">Диспетчер. Маршруты партий.<br/>Связка двух концов производства.</div>
+      </div>
+    </div>
+    <div class="phase" style="background: #6B8FCF; flex: 3;">
+      <div>
+        <div class="num-tag">ФАЗА 03</div>
+        <div class="weeks">3<span class="unit">нед</span></div>
+      </div>
+      <div>
+        <div class="name">Все 9 цехов</div>
+        <div class="detail">Клеевой, швейка, окраска, сборка, ОТК, склад. Дашборд для директора.</div>
+      </div>
+    </div>
+    <div class="phase" style="background: #107C41; flex: 2;">
+      <div>
+        <div class="num-tag">ФАЗА 04</div>
+        <div class="weeks">2<span class="unit">нед</span></div>
+      </div>
+      <div>
+        <div class="name">1С Обмен</div>
+        <div class="detail">Импорт справочников.<br/>Выгрузка ведомостей.</div>
+      </div>
+    </div>
+  </div>
+  <div class="roadmap-axis">
+    <span class="start"><span class="dot"></span>Старт · нед 1</span>
+    <span>нед 3</span><span>нед 5</span><span>нед 8</span>
+    <span class="end">Финиш · нед 10<span class="dot" style="background: var(--success);"></span></span>
+  </div>
+  <div class="slide-no">06 / 10</div>
+</section>
+
+<!-- ============ 7. WINS ============ -->
+<section data-screen-label="07 · Wins">
+  <div class="slide-tag"><span class="logo-dot">L</span><span>06 — ЧТО ВЫИГРАЕМ</span></div>
+  <div style="margin-top: 40px;">
+    <span class="eyebrow">Эффекты после внедрения</span>
+    <h2 class="h-1" style="margin-top: 16px;">Три цифры, которые увидит директор</h2>
+  </div>
+  <div class="wins">
+    <div class="win" style="background: var(--brand); color: white;">
+      <div class="big">−40<span style="font-size: 64px;">%</span></div>
+      <div>
+        <div class="label">Времени на учёт</div>
+        <div class="meta">С тетрадей по 30 минут на бригадира<br/>→ 5 минут со смены через app</div>
+      </div>
+    </div>
+    <div class="win" style="background: #107C41; color: white;">
+      <div class="big">+15<span style="font-size: 64px;">%</span></div>
+      <div>
+        <div class="label">Точность расчёта ЗП</div>
+        <div class="meta">Авто-расчёт по расценкам<br/>Нет ошибок переноса с тетради в Excel</div>
+      </div>
+    </div>
+    <div class="win" style="background: var(--ink); color: white;">
+      <div class="big">0</div>
+      <div>
+        <div class="label">Потерянных партий</div>
+        <div class="meta">QR-код на каждой партии<br/>Маршрут фиксируется автоматически</div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-no">07 / 10</div>
+</section>
+
+<!-- ============ 8. BUDGET ============ -->
+<section data-screen-label="08 · Budget">
+  <div class="slide-tag"><span class="logo-dot">L</span><span>07 — БЮДЖЕТ</span></div>
+  <div style="margin-top: 40px;">
+    <span class="eyebrow">Полная стоимость владения</span>
+    <h2 class="h-1" style="margin-top: 16px;">Собственная разработка. Минимум подписок.</h2>
+  </div>
+  <div class="budget-table">
+    <div class="budget-row">
+      <div class="idx">01</div>
+      <div class="what">Хостинг<span class="sub">Vercel + Supabase Free tier</span></div>
+      <div class="detail">до 100k запросов/мес</div>
+      <div class="cost">0 ₽<span class="small">в месяц</span></div>
+    </div>
+    <div class="budget-row">
+      <div class="idx">02</div>
+      <div class="what">AI-инструменты<span class="sub">Claude Code для разработки</span></div>
+      <div class="detail">~ $20/мес = ~ 1 900 ₽</div>
+      <div class="cost">1 900 ₽<span class="small">в месяц</span></div>
+    </div>
+    <div class="budget-row">
+      <div class="idx">03</div>
+      <div class="what">Время своей команды<span class="sub">10 недель × 2 часа/день</span></div>
+      <div class="detail">внутренний ресурс</div>
+      <div class="cost">100 ч<span class="small">всего</span></div>
+    </div>
+    <div class="budget-row">
+      <div class="idx">04</div>
+      <div class="what">Домен и SSL<span class="sub">lightflow.svet.ru</span></div>
+      <div class="detail">оплата раз в год</div>
+      <div class="cost">~ 100 ₽<span class="small">в месяц</span></div>
+    </div>
+    <div class="budget-row total">
+      <div class="idx" style="color: rgba(255,255,255,0.5);">∑</div>
+      <div class="what">Итого ежемесячные расходы<span class="sub">после запуска</span></div>
+      <div class="detail" style="color: rgba(255,255,255,0.85)">< 5 000 ₽/мес на всю систему</div>
+      <div class="cost">~ 2 000 ₽<span class="small" style="color: rgba(255,255,255,0.7)">в месяц</span></div>
+    </div>
+  </div>
+  <div class="slide-no">08 / 10</div>
+</section>
+
+<!-- ============ 9. RISKS ============ -->
+<section data-screen-label="09 · Risks">
+  <div class="slide-tag"><span class="logo-dot">L</span><span>08 — РИСКИ И МИТИГАЦИИ</span></div>
+  <div style="margin-top: 40px;">
+    <span class="eyebrow">3 главных риска · что с ними делать</span>
+    <h2 class="h-1" style="margin-top: 16px;">На каждый риск — конкретное решение</h2>
+  </div>
+  <div class="risk-table">
+    <div class="risk-head">
+      <div></div>
+      <div>Риск</div>
+      <div>→ Митигация</div>
+    </div>
+    <div class="risk-row">
+      <div class="badge">01</div>
+      <div>
+        <div class="r-title">Бригадиры не примут новую систему</div>
+        <div class="r-detail">Привыкли к тетрадям. Возрастной состав. Работают в перчатках — пальцы не попадают по мелким кнопкам.</div>
+      </div>
+      <div class="solution">
+        <div class="arrow">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="s-text"><strong>Постепенный запуск с одного цеха.</strong> Литейка — 8 человек, простая операция. Кнопки 56px, экран в мобильном режиме. 2 недели обкатки до расширения.</div>
+      </div>
+    </div>
+    <div class="risk-row">
+      <div class="badge">02</div>
+      <div>
+        <div class="r-title">Расценки сложно описать</div>
+        <div class="r-detail">142 артикула × 9 цехов × надбавки за сложность. Часть расценок «в голове» у технолога.</div>
+      </div>
+      <div class="solution">
+        <div class="arrow">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="s-text"><strong>Итерации с технологом.</strong> Начинаем с 10 ходовых артикулов. Расценки правятся через интерфейс. Делаем версионирование — можно откатить.</div>
+      </div>
+    </div>
+    <div class="risk-row">
+      <div class="badge">03</div>
+      <div>
+        <div class="r-title">1С не примет формат</div>
+        <div class="r-detail">Бухгалтерия 8.3, типовая конфигурация. Любое расхождение в шаблоне — отказ загрузки.</div>
+      </div>
+      <div class="solution">
+        <div class="arrow">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="s-text"><strong>Согласование с бухгалтером заранее.</strong> Берём образцы рабочих файлов из 1С. Делаем валидатор перед выгрузкой. Тестовая загрузка в копию базы.</div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-no">09 / 10</div>
+</section>
+
+<!-- ============ 10. ASK ============ -->
+<section data-screen-label="10 · Ask">
+  <div class="slide-tag"><span class="logo-dot">L</span><span>09 — ЧТО НУЖНО</span></div>
+  <div class="ask-wrap" style="margin-top: 40px;">
+    <div>
+      <span class="eyebrow">От директора · короткий список</span>
+      <h2 class="h-1" style="margin-top: 16px; max-width: 720px;">Три «да» — и стартуем</h2>
+      <div class="ask-list">
+        <div class="ask-item">
+          <div class="check">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="ti">Согласие на пилот в литейке<span class="det">3 недели, 8 человек, без остановки производства</span></div>
+        </div>
+        <div class="ask-item">
+          <div class="check">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="ti">1 час технолога на расценки<span class="det">10 ходовых артикулов · можно частями по 20 минут</span></div>
+        </div>
+        <div class="ask-item">
+          <div class="check">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="ti">1 час бухгалтера на формат 1С<span class="det">образцы файлов выгрузки + согласование шаблона</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="start-card">
+      <div class="eb">СТАРТ</div>
+      <div class="when">Понедельник</div>
+      <div class="date">18 · 05 · 2026</div>
+      <div class="calendar">
+        <div class="cal-cell active">ПН<span class="d">18</span></div>
+        <div class="cal-cell">ВТ<span class="d">19</span></div>
+        <div class="cal-cell">СР<span class="d">20</span></div>
+        <div class="cal-cell">ЧТ<span class="d">21</span></div>
+        <div class="cal-cell">ПТ<span class="d">22</span></div>
+      </div>
+      <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.18); font-family: var(--mono); font-size: 14px; opacity: 0.8; line-height: 1.5;">
+        Неделя 1 · Литейка<br/>
+        Финиш пилота · 7 июня
+      </div>
+    </div>
+  </div>
+  <div class="slide-no">10 / 10</div>
+</section>
+
+</deck-stage>
+
+</body>
+</html>

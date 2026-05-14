@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<title>LightFlow за 2 минуты — инструкция бригадира</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --blue:#214A8C;
+    --blue-700:#18386B;
+    --ink:#0E1726;
+    --ink-2:#344056;
+    --ink-3:#5E6B80;
+    --line:#1A1A1A;
+    --paper:#FFFFFF;
+
+    /* 9 workshop colors — print-safe */
+    --s1:#214A8C; --s2:#2F62B5; --s3:#3E86C9;
+    --s4:#39A39A; --s5:#5DB67E; --s6:#C9B23A;
+    --s7:#E8742C; --s8:#B0506A; --s9:#5A4C8A;
+  }
+
+  @page{ size: A4 portrait; margin: 0; }
+  html,body{ margin:0; padding:0; background:#3B3B3B; }
+  body{ font-family:'Inter', system-ui, sans-serif; color:var(--ink); }
+
+  .a4{
+    width:210mm;
+    height:297mm;
+    background:#fff;
+    margin:18px auto;
+    box-sizing:border-box;
+    padding:14mm 14mm 12mm;
+    position:relative;
+    display:flex; flex-direction:column;
+    /* Black & white safe: rely on weight, hierarchy, outlines */
+    print-color-adjust:exact;
+    -webkit-print-color-adjust:exact;
+  }
+
+  /* ---------- HEADER ---------- */
+  .hdr{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    padding-bottom:6mm;
+    border-bottom:3px solid #000;
+  }
+  .hdr .brand{
+    display:flex; align-items:center; gap:4mm;
+  }
+  .hdr .glyph{ width:18mm; height:18mm; flex:none; color:#000; }
+  .hdr .wm{ font-weight:800; font-size:38pt; letter-spacing:-0.025em; line-height:.9; }
+  .hdr .wm .light{ font-weight:300; }
+  .hdr .wm .flow{ font-weight:900; }
+  .hdr .sub{ font-size:11pt; margin-top:2mm; color:#000; font-weight:500; }
+
+  .hdr .right{
+    text-align:right; font-family:'JetBrains Mono', monospace;
+    font-size:10pt; color:#000; line-height:1.5;
+  }
+  .hdr .shop-label{
+    margin-top:2mm;
+    font-family:'Inter', sans-serif;
+    font-size:12pt; font-weight:600;
+    border:1.5px solid #000; padding:2mm 4mm; border-radius:2mm;
+    display:inline-block;
+    color:#000;
+    background:#fff;
+  }
+  .hdr .shop-label small{ display:block; font-size:7pt; font-weight:500; color:#000; letter-spacing:.1em; text-transform:uppercase; margin-bottom:1mm; }
+  .hdr .shop-label .blank{
+    display:inline-block; min-width:50mm; border-bottom:1px solid #000;
+    height:6mm;
+  }
+
+  /* Title strip */
+  .title-strip{
+    margin-top:5mm;
+    display:flex; justify-content:space-between; align-items:baseline;
+  }
+  .title-strip h1{
+    font-size:28pt; font-weight:800; margin:0; letter-spacing:-0.022em; line-height:1;
+    color:#000;
+  }
+  .title-strip .mins{
+    font-family:'JetBrains Mono', monospace; font-size:10pt;
+    color:#000; letter-spacing:.1em; text-transform:uppercase;
+    border:1.5px solid #000; padding:1.5mm 3mm; border-radius:99px;
+  }
+
+  /* ---------- STEPS ---------- */
+  .steps{
+    margin-top:6mm;
+    display:grid;
+    grid-template-columns: 1fr;
+    gap:4mm;
+    flex:1;
+  }
+  .step{
+    display:grid;
+    grid-template-columns: 16mm 1fr 56mm;
+    gap:5mm;
+    border:1.5px solid #000;
+    border-radius:3mm;
+    padding:4mm 5mm;
+    background:#fff;
+    align-items:stretch;
+    min-height:30mm;
+  }
+  .step.no-mock{ grid-template-columns: 16mm 1fr; }
+  .step .n-ico{
+    display:flex; flex-direction:column; align-items:center; gap:2mm;
+  }
+  .step .num{
+    font-family:'Inter', sans-serif;
+    font-weight:900; font-size:30pt; line-height:1; color:#000;
+  }
+  .step .ico{
+    width:14mm; height:14mm;
+    border:1.5px solid #000; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    color:#000;
+    background:#fff;
+  }
+  .step .ico svg{ width:9mm; height:9mm; }
+
+  .step .body{
+    display:flex; flex-direction:column; justify-content:center;
+  }
+  .step h2{
+    margin:0 0 2mm; font-size:18pt; font-weight:800; letter-spacing:-0.015em; line-height:1.05;
+    color:#000;
+  }
+  .step p{
+    margin:0; font-size:11.5pt; line-height:1.4; color:#000;
+    max-width:110mm;
+  }
+  .step p b{ font-weight:700; }
+
+  /* Screenshot mock (B&W safe) */
+  .mock{
+    border:1.5px solid #000;
+    border-radius:2mm;
+    background:#fff;
+    overflow:hidden;
+    font-family:'Inter', sans-serif;
+    font-size:7pt;
+    display:flex; flex-direction:column;
+  }
+  .mock .bar{
+    height:5mm; background:#000; color:#fff;
+    display:flex; align-items:center; padding:0 2mm;
+    font-family:'JetBrains Mono', monospace;
+    font-size:6pt; letter-spacing:.08em; text-transform:uppercase;
+  }
+  .mock .bar i{
+    width:1.5mm; height:1.5mm; border-radius:50%; background:#fff;
+    margin-right:1mm;
+  }
+  .mock .bar span{ margin-left:auto; opacity:.8; }
+  .mock-body{ padding:2.5mm 3mm; flex:1; display:flex; flex-direction:column; gap:1.2mm; }
+  .mock-btn{
+    border:1.5px solid #000; background:#000; color:#fff;
+    text-align:center; font-weight:700; font-size:10pt;
+    padding:3mm; border-radius:1.5mm;
+    margin-top:auto;
+    letter-spacing:-0.005em;
+  }
+  .mock-btn.ghost{ background:#fff; color:#000; }
+  .mock-row{
+    display:flex; justify-content:space-between; align-items:center;
+    border-bottom:1px dashed #000;
+    padding:1mm 0;
+    font-size:7.5pt;
+  }
+  .mock-row:last-of-type{ border-bottom:none; }
+  .mock-row b{ font-weight:700; }
+  .mock-title{
+    font-weight:700; font-size:8pt; padding-bottom:1mm;
+    border-bottom:1.5px solid #000; margin-bottom:1mm;
+    display:flex; justify-content:space-between;
+  }
+  .mock-pill{
+    font-family:'JetBrains Mono', monospace;
+    font-size:6pt; border:1px solid #000; padding:.2mm 1.5mm; border-radius:99px;
+  }
+  .mock-input{
+    border:1.5px solid #000; padding:1.5mm 2mm; font-weight:600;
+    font-size:8pt; display:flex; justify-content:space-between; align-items:center;
+    border-radius:1mm;
+  }
+  .mock-input span{ font-family:'JetBrains Mono', monospace; font-size:7pt; }
+  .mock-grid2{ display:grid; grid-template-columns:1fr 1fr; gap:1.5mm; }
+  .mock-stat{
+    border:1.5px solid #000; padding:1.2mm 1.5mm; border-radius:1mm;
+  }
+  .mock-stat b{ display:block; font-size:11pt; font-weight:800; letter-spacing:-0.01em; }
+  .mock-stat span{ font-size:6pt; letter-spacing:.08em; text-transform:uppercase; }
+
+  /* Step variants for 4 & 5 (no mock) */
+  .step.no-mock p{ max-width:none; }
+
+  /* ---------- FOOTER ---------- */
+  .ft{
+    margin-top:5mm;
+    border-top:3px solid #000;
+    padding-top:4mm;
+    display:flex; justify-content:space-between; align-items:flex-end;
+  }
+  .legend{ flex:1; }
+  .legend-title{
+    font-family:'JetBrains Mono', monospace;
+    font-size:7.5pt; letter-spacing:.14em; text-transform:uppercase; color:#000;
+    margin-bottom:2mm; font-weight:600;
+  }
+  .shops{
+    display:flex; gap:1.5mm; flex-wrap:nowrap;
+  }
+  .shops .s{
+    flex:1;
+    border:1.5px solid #000; padding:1.5mm 1mm 1mm;
+    text-align:center;
+    border-radius:1.5mm;
+    background:#fff;
+  }
+  .shops .s .dot{
+    width:6mm; height:6mm; margin:0 auto 1mm;
+    border:1.5px solid #000; border-radius:50%;
+    background:#fff;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'JetBrains Mono', monospace; font-size:7pt; font-weight:700;
+  }
+  .shops .s .n{ font-size:7pt; font-weight:600; letter-spacing:-0.005em; }
+
+  .ft .credit{
+    font-family:'JetBrains Mono', monospace;
+    font-size:7pt; text-align:right; color:#000; letter-spacing:.06em;
+    line-height:1.5; padding-left:6mm;
+    min-width:50mm;
+  }
+  .ft .credit b{ font-family:'Inter', sans-serif; font-weight:700; font-size:9pt; letter-spacing:-0.005em; }
+
+  /* Hint pin marks (decorative for "повешено на стену") */
+  .pin{
+    position:absolute; top:6mm; width:5mm; height:5mm;
+    border:1.5px solid #000; border-radius:50%;
+    background:#fff;
+  }
+  .pin.l{ left:6mm; } .pin.r{ right:6mm; }
+  .pin::after{
+    content:""; display:block; width:1.5mm; height:1.5mm; background:#000;
+    border-radius:50%; margin:1.5mm auto;
+  }
+
+  @media print{
+    html,body{ background:#fff; }
+    .a4{ margin:0; box-shadow:none; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="lf-glyph" viewBox="0 0 100 100">
+      <path d="M22 18 V72 H58" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="square"/>
+      <path d="M58 72 L78 52 M58 72 L78 82 M58 72 H82" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="square"/>
+      <circle cx="22" cy="18" r="6" fill="currentColor"/>
+    </symbol>
+    <symbol id="i-play" viewBox="0 0 24 24">
+      <path d="M7 4.5 V19.5 L20 12 Z" fill="currentColor"/>
+    </symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24">
+      <path d="M12 4 V20 M4 12 H20" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none"/>
+    </symbol>
+    <symbol id="i-check" viewBox="0 0 24 24">
+      <path d="M4 12.5 L10 18.5 L20 6.5" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24">
+      <path d="M4 20 L4 16 L16 4 L20 8 L8 20 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M13 7 L17 11" stroke="currentColor" stroke-width="2"/>
+    </symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24">
+      <path d="M5 3 H9 L11 8 L8.5 9.5 C9.5 12 12 14.5 14.5 15.5 L16 13 L21 15 V19 C21 20 20 21 19 21 C10 21 3 14 3 5 C3 4 4 3 5 3 Z"
+            fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="a4">
+
+  <div class="pin l"></div>
+  <div class="pin r"></div>
+
+  <!-- HEADER -->
+  <header class="hdr">
+    <div>
+      <div class="brand">
+        <svg class="glyph" viewBox="0 0 100 100"><use href="#lf-glyph"/></svg>
+        <div>
+          <div class="wm"><span class="light">Light</span><span class="flow">Flow</span></div>
+          <div class="sub">Как вести смену в LightFlow</div>
+        </div>
+      </div>
+    </div>
+    <div class="right">
+      <div class="shop-label">
+        <small>Цех</small>
+        <span class="blank"></span>
+      </div>
+    </div>
+  </header>
+
+  <div class="title-strip">
+    <h1>LightFlow за 2 минуты</h1>
+    <span class="mins">5 шагов · читается за&nbsp;120&nbsp;секунд</span>
+  </div>
+
+  <!-- STEPS -->
+  <div class="steps">
+
+    <!-- STEP 1 -->
+    <article class="step">
+      <div class="n-ico">
+        <div class="num">1</div>
+        <div class="ico"><svg><use href="#i-play"/></svg></div>
+      </div>
+      <div class="body">
+        <h2>Откройте смену</h2>
+        <p>Зайдите в&nbsp;LightFlow на&nbsp;планшете. Нажмите <b>«Открыть смену»</b>. Отметьте, кто из&nbsp;работников вышел сегодня.</p>
+      </div>
+      <div class="mock">
+        <div class="bar"><i></i><i></i><i></i><span>смена · литейка</span></div>
+        <div class="mock-body">
+          <div class="mock-title"><span>14.05</span><span class="mock-pill">не открыта</span></div>
+          <div class="mock-row"><b>Иванов А.</b><span>—</span></div>
+          <div class="mock-row"><b>Петров С.</b><span>—</span></div>
+          <div class="mock-row"><b>Сидоров К.</b><span>—</span></div>
+          <div class="mock-btn">▶ Открыть смену</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- STEP 2 -->
+    <article class="step">
+      <div class="n-ico">
+        <div class="num">2</div>
+        <div class="ico"><svg><use href="#i-plus"/></svg></div>
+      </div>
+      <div class="body">
+        <h2>Добавляйте выработку по&nbsp;ходу дня</h2>
+        <p>Каждый раз, когда сделана партия — нажмите <b>«+&nbsp;Добавить»</b>. Введите артикул, кол-во пар, вес, брак, машину.</p>
+      </div>
+      <div class="mock">
+        <div class="bar"><i></i><i></i><i></i><span>+ выработка</span></div>
+        <div class="mock-body">
+          <div class="mock-input"><b>Артикул</b><span>4012</span></div>
+          <div class="mock-input"><b>Пар</b><span>140</span></div>
+          <div class="mock-input"><b>Брак / маш.</b><span>2 · №3</span></div>
+          <div class="mock-btn">+ Добавить</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- STEP 3 -->
+    <article class="step">
+      <div class="n-ico">
+        <div class="num">3</div>
+        <div class="ico"><svg><use href="#i-check"/></svg></div>
+      </div>
+      <div class="body">
+        <h2>Закройте смену в&nbsp;конце дня</h2>
+        <p>Перед уходом нажмите <b>«Закрыть смену»</b>. Проверьте: всё&nbsp;ли учтено? Партии передадутся в&nbsp;следующий цех автоматически.</p>
+      </div>
+      <div class="mock">
+        <div class="bar"><i></i><i></i><i></i><span>итоги смены</span></div>
+        <div class="mock-body">
+          <div class="mock-grid2">
+            <div class="mock-stat"><b>1 248</b><span>пар</span></div>
+            <div class="mock-stat"><b>2.1%</b><span>брак</span></div>
+            <div class="mock-stat"><b>3/3</b><span>явка</span></div>
+            <div class="mock-stat"><b>4</b><span>партии</span></div>
+          </div>
+          <div class="mock-btn">✓ Закрыть смену</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- STEP 4 -->
+    <article class="step no-mock">
+      <div class="n-ico">
+        <div class="num">4</div>
+        <div class="ico"><svg><use href="#i-pencil"/></svg></div>
+      </div>
+      <div class="body">
+        <h2>Если ошиблись</h2>
+        <p>Пока смена <b>не закрыта</b> — можете править прямо в&nbsp;строке. После закрытия — обратитесь к&nbsp;технологу, он внесёт правку.</p>
+      </div>
+    </article>
+
+    <!-- STEP 5 -->
+    <article class="step no-mock">
+      <div class="n-ico">
+        <div class="num">5</div>
+        <div class="ico"><svg><use href="#i-phone"/></svg></div>
+      </div>
+      <div class="body">
+        <h2>Если что-то не&nbsp;работает</h2>
+        <p>Позвоните: <b>_________________________</b> &nbsp;·&nbsp; Telegram: <b>_________________________</b></p>
+      </div>
+    </article>
+
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="ft">
+    <div class="legend">
+      <div class="legend-title">Маршрут партии · 9 цехов</div>
+      <div class="shops">
+        <div class="s"><div class="dot">1</div><div class="n">Раскрой</div></div>
+        <div class="s"><div class="dot">2</div><div class="n">Заготовка</div></div>
+        <div class="s"><div class="dot">3</div><div class="n">Литейка</div></div>
+        <div class="s"><div class="dot">4</div><div class="n">Затяжка</div></div>
+        <div class="s"><div class="dot">5</div><div class="n">Сборка</div></div>
+        <div class="s"><div class="dot">6</div><div class="n">Отделка</div></div>
+        <div class="s"><div class="dot">7</div><div class="n">Упаковка</div></div>
+        <div class="s"><div class="dot">8</div><div class="n">ОТК</div></div>
+        <div class="s"><div class="dot">9</div><div class="n">Склад</div></div>
+      </div>
+    </div>
+    <div class="credit">
+      <b>Светлая компания</b><br/>
+      LightFlow v1.0<br/>
+      2026
+    </div>
+  </footer>
+
+</div>
+
+</body>
+</html>

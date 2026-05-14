@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LightFlow · Дизайн-система</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* BRAND */
+    --brand: #214A8C;
+    --brand-dark: #163566;
+    --brand-light: #3D6FB8;
+    --brand-pale: #E8EFF8;
+    --brand-mist: #F4F7FC;
+    --surface: #FFFFFF;
+
+    /* SEMANTIC */
+    --accent: #F59E0B;
+    --success: #10B981;
+    --warn: #F59E0B;
+    --danger: #EF4444;
+    --info: #3D6FB8;
+
+    /* TEXT */
+    --ink: #0F1B2D;
+    --ink-2: #344563;
+    --ink-dim: #6B7C93;
+
+    /* WORKSHOPS */
+    --ws-raw:  #8B5CF6;
+    --ws-mold: #EF4444;
+    --ws-pack: #214A8C;
+    --ws-cut:  #06B6D4;
+    --ws-sew:  #EC4899;
+    --ws-glue: #F59E0B;
+    --ws-assy: #14B8A6;
+    --ws-mark: #6366F1;
+    --ws-ship: #10B981;
+
+    --border: #D9E2EE;
+    --bg: #F4F7FC;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    font-variant-numeric: tabular-nums;
+  }
+  body {
+    padding: 48px 32px 96px;
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; }
+
+  /* HEADER */
+  .header {
+    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+    color: white;
+    padding: 56px 48px;
+    border-radius: 16px;
+    margin-bottom: 48px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::after {
+    content: 'LF';
+    position: absolute;
+    right: -40px;
+    bottom: -80px;
+    font-size: 360px;
+    font-weight: 800;
+    color: rgba(255,255,255,0.05);
+    letter-spacing: -0.05em;
+    line-height: 0.9;
+    font-family: 'Inter', sans-serif;
+  }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 100px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+  .eyebrow::before { content:''; width:6px; height:6px; border-radius:50%; background: var(--accent); }
+  h1 {
+    font-size: 52px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+    margin-bottom: 14px;
+    position: relative;
+  }
+  h1 .accent { color: var(--accent); }
+  .lead {
+    font-size: 17px;
+    opacity: 0.85;
+    max-width: 680px;
+    position: relative;
+  }
+  .lock {
+    margin-top: 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 18px;
+    background: rgba(16, 185, 129, 0.18);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    color: #6EE7B7;
+    border-radius: 100px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    position: relative;
+  }
+  .lock svg { width: 14px; height: 14px; }
+
+  /* SECTION */
+  section { margin-bottom: 56px; }
+  .sec-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .sec-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: white;
+    background: var(--brand);
+    padding: 4px 10px;
+    border-radius: 6px;
+    letter-spacing: 0.1em;
+  }
+  .sec-title {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+  .sec-sub {
+    color: var(--ink-dim);
+    font-size: 13px;
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* COLOR GRID */
+  .grid { display: grid; gap: 14px; }
+  .g-brand    { grid-template-columns: repeat(6, 1fr); }
+  .g-semantic { grid-template-columns: repeat(4, 1fr); }
+  .g-text     { grid-template-columns: repeat(3, 1fr); }
+  .g-ws       { grid-template-columns: repeat(3, 1fr); }
+
+  .swatch {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .sw-color {
+    height: 110px;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    padding: 14px;
+  }
+  .sw-num {
+    position: absolute;
+    top: 12px;
+    left: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    background: rgba(255,255,255,0.85);
+    color: var(--ink);
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+  }
+  .sw-color.light .sw-num { background: rgba(15,27,45,0.08); }
+  .sw-body {
+    padding: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .sw-name {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .sw-role {
+    font-size: 11px;
+    color: var(--ink-dim);
+    margin-bottom: 8px;
+    line-height: 1.4;
+    min-height: 30px;
+  }
+  .sw-hex {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--brand);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .sw-token {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-dim);
+    margin-top: 2px;
+  }
+
+  /* WORKSHOP CARDS */
+  .ws-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    display: grid;
+    grid-template-columns: 48px 1fr auto;
+    gap: 16px;
+    align-items: center;
+    transition: all 0.15s;
+  }
+  .ws-card:hover { border-color: var(--brand-light); }
+  .ws-dot {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .ws-meta-num { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; margin-bottom: 2px;}
+  .ws-name { font-size: 16px; font-weight: 700; }
+  .ws-role { font-size: 11px; color: var(--ink-dim); margin-top: 2px; }
+  .ws-hex { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-2); font-weight: 600; }
+  .ws-card.dispatcher {
+    border-color: var(--brand);
+    border-width: 2px;
+    background: linear-gradient(135deg, #F4F7FC 0%, #E8EFF8 100%);
+  }
+  .ws-badge {
+    display: inline-block;
+    background: var(--brand);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+    margin-left: 6px;
+  }
+
+  /* TYPOGRAPHY */
+  .type-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .type-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+  }
+  .type-tag {
+    display: inline-block;
+    background: var(--brand-pale);
+    color: var(--brand);
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    margin-bottom: 16px;
+  }
+  .type-card.mono .type-tag { background: #FEF3C7; color: #92400E; }
+  .type-name {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+  }
+  .type-card.mono .type-name { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+  .type-use {
+    font-size: 13px;
+    color: var(--ink-dim);
+    margin-bottom: 20px;
+  }
+  .type-sample {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    background: var(--brand-mist);
+    border-radius: 8px;
+  }
+  .type-sample .l { font-size: 24px; font-weight: 800; letter-spacing: -0.01em; }
+  .type-sample .m { font-size: 16px; font-weight: 500; }
+  .type-sample .s { font-size: 12px; color: var(--ink-dim); }
+  .type-card.mono .type-sample .l,
+  .type-card.mono .type-sample .m,
+  .type-card.mono .type-sample .s { font-family: 'JetBrains Mono', monospace; }
+  .type-card.mono .type-sample .l { letter-spacing: 0; }
+
+  /* COMPONENTS */
+  .comp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+  }
+  .comp-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+  }
+  .comp-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+  .comp-body { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+  .comp-body.center { align-items: stretch; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn.primary { background: var(--brand); color: white; }
+  .btn.primary:hover { background: var(--brand-dark); }
+  .btn.accent { background: var(--accent); color: white; }
+  .btn.secondary { background: white; color: var(--ink); border-color: var(--border); }
+  .btn.secondary:hover { border-color: var(--brand-light); }
+  .btn.danger { background: white; color: var(--danger); border-color: #FCA5A5; }
+  .btn.lg { padding: 16px 28px; font-size: 16px; border-radius: 10px; }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.04em;
+  }
+  .pill::before { content:''; width: 6px; height: 6px; border-radius: 50%; }
+  .pill.success { background: #D1FAE5; color: var(--success); }
+  .pill.success::before { background: var(--success); }
+  .pill.warn { background: #FEF3C7; color: #92400E; }
+  .pill.warn::before { background: var(--warn); }
+  .pill.danger { background: #FEE2E2; color: var(--danger); }
+  .pill.danger::before { background: var(--danger); }
+  .pill.info { background: #DBEAFE; color: var(--info); }
+  .pill.info::before { background: var(--info); }
+
+  .input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: white;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-pale); }
+
+  .kpi {
+    background: var(--brand-mist);
+    border-left: 3px solid var(--brand);
+    padding: 14px 16px;
+    border-radius: 8px;
+  }
+  .kpi .l { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-dim); font-weight: 600; margin-bottom: 6px; }
+  .kpi .v { font-size: 26px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+  .kpi .d { font-size: 11px; color: var(--success); margin-top: 4px; font-weight: 600; }
+
+  .mini-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .mc-head {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--brand);
+    margin-bottom: 6px;
+  }
+  .mc-body { font-size: 12px; color: var(--ink-2); }
+
+  /* TOKENS GRID */
+  .tokens {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .tk-row {
+    display: grid;
+    grid-template-columns: 200px 140px 1fr;
+    gap: 16px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    align-items: center;
+  }
+  .tk-row:last-child { border-bottom: 0; }
+  .tk-row.head {
+    background: var(--brand-mist);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--brand);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+  }
+  .tk-name { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--ink); font-size: 12px; }
+  .tk-val { font-family: 'JetBrains Mono', monospace; color: var(--brand); font-size: 12px; font-weight: 600; }
+  .tk-desc { color: var(--ink-dim); font-size: 12px; }
+  .tk-preview {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    vertical-align: middle;
+    margin-right: 8px;
+    border: 1px solid rgba(0,0,0,0.08);
+  }
+
+  /* PRINCIPLES */
+  .principles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+  }
+  .p-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+    border-top: 3px solid var(--brand);
+  }
+  .p-card.users { border-top-color: var(--accent); }
+  .p-card.touch { border-top-color: var(--success); }
+  .p-card.nums  { border-top-color: var(--info); }
+  .p-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-dim);
+    letter-spacing: 0.1em;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .p-title { font-size: 17px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.01em; }
+  .p-text { font-size: 13px; color: var(--ink-2); line-height: 1.55; }
+
+  /* FOOTER */
+  .footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  @media (max-width: 900px) {
+    .g-brand { grid-template-columns: repeat(2, 1fr); }
+    .g-semantic { grid-template-columns: repeat(2, 1fr); }
+    .g-text { grid-template-columns: 1fr; }
+    .g-ws { grid-template-columns: 1fr; }
+    .type-grid { grid-template-columns: 1fr; }
+    .tk-row { grid-template-columns: 1fr; gap: 4px; }
+    h1 { font-size: 36px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HEADER -->
+  <div class="header">
+    <span class="eyebrow">LightFlow · Design System · v1.0</span>
+    <h1>Дизайн-система <span class="accent">LightFlow</span><br>зафиксирована</h1>
+    <p class="lead">Единые токены цвета, типографики и компонентов для всех экранов MES-системы Light Company. Опора для бригадиров, технолога, директора и бухгалтера.</p>
+    <div class="lock">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Locked · 12.05.2026
+    </div>
+  </div>
+
+  <!-- 01 BRAND COLORS -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <h2 class="sec-title">Цвета бренда</h2>
+      <span class="sec-sub">light-c.shop · meta-theme #214A8C</span>
+    </div>
+    <div class="grid g-brand">
+      <div class="swatch">
+        <div class="sw-color" style="background:#214A8C"><span class="sw-num">PRIMARY</span></div>
+        <div class="sw-body">
+          <div class="sw-name">Основной синий</div>
+          <div class="sw-role">Главные кнопки, ссылки, акценты бренда</div>
+          <div class="sw-hex">#214A8C</div>
+          <div class="sw-token">--brand</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="sw-color" style="background:#163566"><span class="sw-num">DARK</span></div>
+        <div class="sw-body">
+          <div class="sw-name">Тёмный синий</div>
+          <div class="sw-role">Hover-состояния, заголовки</div>
+          <div class="sw-hex">#163566</div>
+          <div class="sw-token">--brand-dark</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="sw-color" style="background:#3D6FB8"><span class="sw-num">LIGHT</span></div>
+        <div class="sw-body">
+          <div class="sw-name">Светлый синий</div>
+          <div class="sw-role">Информационные элементы, ссылки</div>
+          <div class="sw-hex">#3D6FB8</div>
+          <div class="sw-token">--brand-light</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="sw-color light" style="background:#E8EFF8"><span class="sw-num">PALE</span></div>
+        <div class="sw-body">
+          <div class="sw-name">Очень светлый</div>
+          <div class="sw-role">Фон активных табов, чипов, бейджей</div>
+          <div class="sw-hex">#E8EFF8</div>
+          <div class="sw-token">--brand-pale</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="sw-color light" style="background:#F4F7FC"><span class="sw-num">PAGE</span></div>
+        <div class="sw-body">
+          <div class="sw-name">Фон страниц</div>
+          <div class="sw-role">Базовый фон приложения</div>
+          <div class="sw-hex">#F4F7FC</div>
+          <div class="sw-token">--bg</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="sw-color light" style="background:#FFFFFF; border-bottom: 1px solid var(--border)"><span class="sw-num">SURFACE</span></div>
+        <div class="sw-body">
+          <div class="sw-name">Surface</div>
+          <div class="sw-role">Карточки, диалоги, поля</div>
+          <div class="sw-hex">#FFFFFF</div>
+          <div class="sw-token">--surface</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 SEMANTIC -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <h2 class="sec-title">Семантические цвета</h2>
+      <span class="sec-sub">Статусы · обратная связь</span>
+    </div>
+    <div class="grid g-semantic">
+      <div class="swatch">
+        <div class="sw-color" style="background:#F59E0B"><span class="sw-num">ACCENT</span></div>
+        <div class="sw-body">
+          <div class="sw-name">Янтарный</div>
+          <div class="sw-role">Акцент, предупреждение, закрытие смены</div>
+          <div class="sw-hex">#F59E0B</div>
+          <div class="sw-token">--accent · --warn</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="sw-color" style="background:#10B981"><span class="sw-num">SUCCESS</span></div>
+        <div class="sw-body">
+          <div class="sw-name">Зелёный</div>
+          <div class="sw-role">Успех, принять партию, норма</div>
+          <div class="sw-hex">#10B981</div>
+          <div class="sw-token">--success</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="sw-color" style="background:#EF4444"><span class="sw-num">DANGER</span></div>
+        <div class="sw-body">
+          <div class="sw-name">Красный</div>
+          <div class="sw-role">Ошибка, брак, критические сбои</div>
+          <div class="sw-hex">#EF4444</div>
+          <div class="sw-token">--danger</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="sw-color" style="background:#3D6FB8"><span class="sw-num">INFO</span></div>
+        <div class="sw-body">
+          <div class="sw-name">Голубой</div>
+          <div class="sw-role">Информационные сообщения, подсказки</div>
+          <div class="sw-hex">#3D6FB8</div>
+          <div class="sw-token">--info</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 TEXT -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <h2 class="sec-title">Цвета текста</h2>
+      <span class="sec-sub">Три уровня иерархии</span>
+    </div>
+    <div class="grid g-text">
+      <div class="swatch">
+        <div class="sw-color" style="background:#0F1B2D"><span class="sw-num">PRIMARY</span></div>
+        <div class="sw-body">
+          <div class="sw-name">Основной текст</div>
+          <div class="sw-role">Заголовки, значения, основное содержимое</div>
+          <div class="sw-hex">#0F1B2D</div>
+          <div class="sw-token">--ink</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="sw-color" style="background:#344563"><span class="sw-num">SECONDARY</span></div>
+        <div class="sw-body">
+          <div class="sw-name">Вторичный</div>
+          <div class="sw-role">Описания, второстепенный текст</div>
+          <div class="sw-hex">#344563</div>
+          <div class="sw-token">--ink-2</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="sw-color" style="background:#6B7C93"><span class="sw-num">MUTED</span></div>
+        <div class="sw-body">
+          <div class="sw-name">Приглушённый</div>
+          <div class="sw-role">Подписи, метаданные, плейсхолдеры</div>
+          <div class="sw-hex">#6B7C93</div>
+          <div class="sw-token">--ink-dim</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 WORKSHOPS -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <h2 class="sec-title">Цвета 9 цехов</h2>
+      <span class="sec-sub">Бейджи · индикаторы маршрутов · метки</span>
+    </div>
+    <div class="grid g-ws">
+      <div class="ws-card">
+        <div class="ws-dot" style="background:#8B5CF6">01</div>
+        <div>
+          <div class="ws-meta-num">Workshop · 01</div>
+          <div class="ws-name">Сырьё</div>
+          <div class="ws-role">ЭВА · ПВХ · добавки · текстиль</div>
+        </div>
+        <div class="ws-hex">#8B5CF6</div>
+      </div>
+      <div class="ws-card">
+        <div class="ws-dot" style="background:#EF4444">02</div>
+        <div>
+          <div class="ws-meta-num">Workshop · 02</div>
+          <div class="ws-name">Литейка</div>
+          <div class="ws-role">ИЛМ · формование пары</div>
+        </div>
+        <div class="ws-hex">#EF4444</div>
+      </div>
+      <div class="ws-card dispatcher">
+        <div class="ws-dot" style="background:#214A8C">03</div>
+        <div>
+          <div class="ws-meta-num">Workshop · 03 <span class="ws-badge">DISPATCHER</span></div>
+          <div class="ws-name">Упаковка</div>
+          <div class="ws-role">Обрезка облоя · сортировка · диспетчеризация маршрутов</div>
+        </div>
+        <div class="ws-hex">#214A8C</div>
+      </div>
+      <div class="ws-card">
+        <div class="ws-dot" style="background:#06B6D4">04</div>
+        <div>
+          <div class="ws-meta-num">Workshop · 04</div>
+          <div class="ws-name">Крой</div>
+          <div class="ws-role">Раскрой текстиля и меха</div>
+        </div>
+        <div class="ws-hex">#06B6D4</div>
+      </div>
+      <div class="ws-card">
+        <div class="ws-dot" style="background:#EC4899">05</div>
+        <div>
+          <div class="ws-meta-num">Workshop · 05</div>
+          <div class="ws-name">Швейка</div>
+          <div class="ws-role">Вкладыши · манжеты</div>
+        </div>
+        <div class="ws-hex">#EC4899</div>
+      </div>
+      <div class="ws-card">
+        <div class="ws-dot" style="background:#F59E0B">06</div>
+        <div>
+          <div class="ws-meta-num">Workshop · 06</div>
+          <div class="ws-name">Клеевой</div>
+          <div class="ws-role">Вклейка вкладышей</div>
+        </div>
+        <div class="ws-hex">#F59E0B</div>
+      </div>
+      <div class="ws-card">
+        <div class="ws-dot" style="background:#14B8A6">07</div>
+        <div>
+          <div class="ws-meta-num">Workshop · 07</div>
+          <div class="ws-name">Обшив</div>
+          <div class="ws-role">Фурнитура · ремешки</div>
+        </div>
+        <div class="ws-hex">#14B8A6</div>
+      </div>
+      <div class="ws-card">
+        <div class="ws-dot" style="background:#6366F1">08</div>
+        <div>
+          <div class="ws-meta-num">Workshop · 08</div>
+          <div class="ws-name">Маркировка</div>
+          <div class="ws-role">Логотип · артикул · ОТК</div>
+        </div>
+        <div class="ws-hex">#6366F1</div>
+      </div>
+      <div class="ws-card">
+        <div class="ws-dot" style="background:#10B981">09</div>
+        <div>
+          <div class="ws-meta-num">Workshop · 09</div>
+          <div class="ws-name">Склад</div>
+          <div class="ws-role">Хранение · отгрузка</div>
+        </div>
+        <div class="ws-hex">#10B981</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 TYPOGRAPHY -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <h2 class="sec-title">Типографика</h2>
+      <span class="sec-sub">Inter + JetBrains Mono</span>
+    </div>
+    <div class="type-grid">
+      <div class="type-card">
+        <span class="type-tag">PRIMARY · SANS</span>
+        <div class="type-name">Inter</div>
+        <div class="type-use">Весь текст интерфейса. Веса 400, 500, 600, 700, 800.</div>
+        <div class="type-sample">
+          <div class="l">Закрытие смены · 12 мая</div>
+          <div class="m">96 пар · 68 кг · 2 пары брака</div>
+          <div class="s">Бригадир: Иванов А.С. · Литейка</div>
+        </div>
+      </div>
+      <div class="type-card mono">
+        <span class="type-tag">NUMERIC · MONO</span>
+        <div class="type-name">JetBrains Mono</div>
+        <div class="type-use">Артикулы, номера партий, числовые значения. Веса 400, 500, 600.</div>
+        <div class="type-sample">
+          <div class="l">ЛИТ-120526-01</div>
+          <div class="m">112/н · 96 × 15₽ = 1 440 ₽</div>
+          <div class="s">batch_id · 7b3a · 2026-05-12 14:30</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 COMPONENTS -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">06</span>
+      <h2 class="sec-title">Базовые компоненты</h2>
+      <span class="sec-sub">shadcn/ui · Lucide icons</span>
+    </div>
+    <div class="comp-grid">
+      <div class="comp-card">
+        <div class="comp-label">BUTTONS</div>
+        <div class="comp-body">
+          <button class="btn primary">Сохранить смену</button>
+          <button class="btn accent">Закрыть смену</button>
+          <button class="btn secondary">Отмена</button>
+          <button class="btn danger">Удалить</button>
+          <button class="btn primary lg">+ Добавить выработку</button>
+        </div>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-label">STATUS PILLS</div>
+        <div class="comp-body">
+          <span class="pill success">Принята</span>
+          <span class="pill warn">В работе</span>
+          <span class="pill danger">Брак 3%</span>
+          <span class="pill info">В транзите</span>
+        </div>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-label">INPUT</div>
+        <div class="comp-body center">
+          <input class="input" type="text" placeholder="Артикул (например, 112/н)" />
+          <input class="input" type="text" value="96" />
+          <input class="input" type="text" placeholder="Поиск..." />
+        </div>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-label">KPI</div>
+        <div class="comp-body center">
+          <div class="kpi">
+            <div class="l">Выпуск пар</div>
+            <div class="v">1 248</div>
+            <div class="d">↑ +12% к плану</div>
+          </div>
+          <div class="kpi" style="border-left-color: var(--accent);">
+            <div class="l">ФОТ за день</div>
+            <div class="v">68 400 ₽</div>
+            <div class="d" style="color: var(--ink-dim)">42 работника</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-label">BATCH MINI-CARD</div>
+        <div class="comp-body center">
+          <div class="mini-card">
+            <div class="mc-head">ЛИТ-120526-01</div>
+            <div class="mc-body">112/н · Сапоги ЭВА · 96 пар → Клеевой</div>
+          </div>
+          <div class="mini-card">
+            <div class="mc-head">ЛИТ-120526-04</div>
+            <div class="mc-body">АВ-300н · Аляска · 32 пары → Крой</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-label">RADII · ELEVATION</div>
+        <div class="comp-body center">
+          <div style="display:flex; gap:12px; align-items:center;">
+            <div style="width:48px; height:48px; background: var(--brand-pale); border-radius:6px;"></div>
+            <div style="font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--ink-2);">6px · small</div>
+          </div>
+          <div style="display:flex; gap:12px; align-items:center;">
+            <div style="width:48px; height:48px; background: var(--brand-pale); border-radius:8px;"></div>
+            <div style="font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--ink-2);">8px · default</div>
+          </div>
+          <div style="display:flex; gap:12px; align-items:center;">
+            <div style="width:48px; height:48px; background: var(--brand-pale); border-radius:12px;"></div>
+            <div style="font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--ink-2);">12px · cards</div>
+          </div>
+          <div style="display:flex; gap:12px; align-items:center;">
+            <div style="width:48px; height:48px; background: white; border: 1px solid var(--border); border-radius:8px; box-shadow: 0 4px 16px rgba(33,74,140,0.08);"></div>
+            <div style="font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--ink-2);">shadow-soft</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 07 TOKENS -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">07</span>
+      <h2 class="sec-title">CSS-токены</h2>
+      <span class="sec-sub">Готовы к копированию</span>
+    </div>
+    <div class="tokens">
+      <div class="tk-row head">
+        <div>Токен</div>
+        <div>Значение</div>
+        <div>Назначение</div>
+      </div>
+      <div class="tk-row"><div class="tk-name">--brand</div><div class="tk-val"><span class="tk-preview" style="background:#214A8C"></span>#214A8C</div><div class="tk-desc">Основной фирменный синий</div></div>
+      <div class="tk-row"><div class="tk-name">--brand-dark</div><div class="tk-val"><span class="tk-preview" style="background:#163566"></span>#163566</div><div class="tk-desc">Hover, тёмные акценты</div></div>
+      <div class="tk-row"><div class="tk-name">--brand-light</div><div class="tk-val"><span class="tk-preview" style="background:#3D6FB8"></span>#3D6FB8</div><div class="tk-desc">Светлый бренд, инфо</div></div>
+      <div class="tk-row"><div class="tk-name">--brand-pale</div><div class="tk-val"><span class="tk-preview" style="background:#E8EFF8"></span>#E8EFF8</div><div class="tk-desc">Бледный фон активных элементов</div></div>
+      <div class="tk-row"><div class="tk-name">--bg</div><div class="tk-val"><span class="tk-preview" style="background:#F4F7FC"></span>#F4F7FC</div><div class="tk-desc">Фон страницы</div></div>
+      <div class="tk-row"><div class="tk-name">--surface</div><div class="tk-val"><span class="tk-preview" style="background:#FFFFFF; border-color: var(--border)"></span>#FFFFFF</div><div class="tk-desc">Карточки, диалоги</div></div>
+      <div class="tk-row"><div class="tk-name">--accent</div><div class="tk-val"><span class="tk-preview" style="background:#F59E0B"></span>#F59E0B</div><div class="tk-desc">Янтарный акцент</div></div>
+      <div class="tk-row"><div class="tk-name">--success</div><div class="tk-val"><span class="tk-preview" style="background:#10B981"></span>#10B981</div><div class="tk-desc">Успех, норма</div></div>
+      <div class="tk-row"><div class="tk-name">--danger</div><div class="tk-val"><span class="tk-preview" style="background:#EF4444"></span>#EF4444</div><div class="tk-desc">Ошибка, брак</div></div>
+      <div class="tk-row"><div class="tk-name">--info</div><div class="tk-val"><span class="tk-preview" style="background:#3D6FB8"></span>#3D6FB8</div><div class="tk-desc">Информация</div></div>
+      <div class="tk-row"><div class="tk-name">--ink</div><div class="tk-val"><span class="tk-preview" style="background:#0F1B2D"></span>#0F1B2D</div><div class="tk-desc">Основной текст</div></div>
+      <div class="tk-row"><div class="tk-name">--ink-2</div><div class="tk-val"><span class="tk-preview" style="background:#344563"></span>#344563</div><div class="tk-desc">Вторичный текст</div></div>
+      <div class="tk-row"><div class="tk-name">--ink-dim</div><div class="tk-val"><span class="tk-preview" style="background:#6B7C93"></span>#6B7C93</div><div class="tk-desc">Приглушённый текст</div></div>
+      <div class="tk-row"><div class="tk-name">--ws-raw / mold / pack…</div><div class="tk-val">9 значений</div><div class="tk-desc">Цвета цехов (см. раздел 04)</div></div>
+    </div>
+  </section>
+
+  <!-- 08 PRINCIPLES -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">08</span>
+      <h2 class="sec-title">Принципы</h2>
+      <span class="sec-sub">Правила использования</span>
+    </div>
+    <div class="principles">
+      <div class="p-card users">
+        <div class="p-num">PRINCIPLE · 01</div>
+        <div class="p-title">Планшет — первичен</div>
+        <div class="p-text">Основной сценарий — 1024px. Адаптивно работает на ПК и смартфоне. PWA устанавливается на планшет цеха.</div>
+      </div>
+      <div class="p-card touch">
+        <div class="p-num">PRINCIPLE · 02</div>
+        <div class="p-title">Бригадир в перчатках</div>
+        <div class="p-text">Минимальная зона тапа — 48px. Крупные кнопки, читаемый шрифт ≥16px. Никаких маленьких иконок-сирот.</div>
+      </div>
+      <div class="p-card nums">
+        <div class="p-num">PRINCIPLE · 03</div>
+        <div class="p-title">Числа — табличные</div>
+        <div class="p-text">font-variant-numeric: tabular-nums везде. Артикулы и номера партий — JetBrains Mono. Деньги выровнены по правому краю.</div>
+      </div>
+      <div class="p-card">
+        <div class="p-num">PRINCIPLE · 04</div>
+        <div class="p-title">Чисто и спокойно</div>
+        <div class="p-text">Светлый фон, белые карточки, тонкая граница, скругление 8–12px. Тени минимальные. Никаких градиентов в основном UI.</div>
+      </div>
+      <div class="p-card">
+        <div class="p-num">PRINCIPLE · 05</div>
+        <div class="p-title">Цехи узнаются мгновенно</div>
+        <div class="p-text">Цвет цеха — однозначный сигнал. Используется в бейджах, индикаторах, чипах маршрута. Никогда не меняется на ходу.</div>
+      </div>
+      <div class="p-card">
+        <div class="p-num">PRINCIPLE · 06</div>
+        <div class="p-title">Иконки Lucide</div>
+        <div class="p-text">Тонкие, контурные, stroke-width 2. Никаких эмодзи в продакшен-UI. Размер по умолчанию — 18–20px.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div>LightFlow · Design System · v1.0</div>
+    <div>Light Company · Кисловодск · 2026</div>
+    <div>Locked 12.05.2026</div>
+  </div>
+
+</div>
+</body>
+</html>

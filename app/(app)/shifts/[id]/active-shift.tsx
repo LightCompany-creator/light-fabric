@@ -41,9 +41,9 @@ export function AddOutputForm({
         })
       }
       id={`output-form-${shiftId}`}
-      className="grid grid-cols-1 gap-3 sm:grid-cols-12"
+      className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-12"
     >
-      <div className="sm:col-span-3">
+      <div className="col-span-2 md:col-span-4 lg:col-span-3">
         <Label htmlFor="article_id">Артикул</Label>
         <Select name="article_id">
           <SelectTrigger>
@@ -58,7 +58,7 @@ export function AddOutputForm({
           </SelectContent>
         </Select>
       </div>
-      <div className="sm:col-span-1">
+      <div className="lg:col-span-1">
         <Label htmlFor="cast_forms">Вид</Label>
         <Select name="cast_forms" defaultValue="none">
           <SelectTrigger>
@@ -74,19 +74,19 @@ export function AddOutputForm({
           </SelectContent>
         </Select>
       </div>
-      <div className="sm:col-span-1">
+      <div className="lg:col-span-1">
         <Label htmlFor="quantity">Пар</Label>
         <Input id="quantity" name="quantity" type="number" inputMode="numeric" min={1} required />
       </div>
-      <div className="sm:col-span-1">
+      <div className="lg:col-span-1">
         <Label htmlFor="weight">Кг</Label>
         <Input id="weight" name="weight" type="number" inputMode="decimal" step="0.01" />
       </div>
-      <div className="sm:col-span-1">
+      <div className="lg:col-span-1">
         <Label htmlFor="defect_qty">Брак</Label>
         <Input id="defect_qty" name="defect_qty" type="number" inputMode="numeric" min={0} defaultValue={0} />
       </div>
-      <div className="sm:col-span-2">
+      <div className="col-span-2 md:col-span-2 lg:col-span-2">
         <Label htmlFor="machine">Машина</Label>
         <Select name="machine" defaultValue="none">
           <SelectTrigger>
@@ -102,12 +102,12 @@ export function AddOutputForm({
           </SelectContent>
         </Select>
       </div>
-      <div className="sm:col-span-1">
+      <div className="lg:col-span-1">
         <Label htmlFor="downtime_min">Простой</Label>
         <Input id="downtime_min" name="downtime_min" type="number" inputMode="numeric" min={0} defaultValue={0} />
       </div>
-      <div className="sm:col-span-2 flex items-end">
-        <Button type="submit" disabled={pending} className="w-full">
+      <div className="col-span-2 md:col-span-4 lg:col-span-2 flex items-end">
+        <Button type="submit" disabled={pending} size="lg" className="w-full">
           {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
           Добавить
         </Button>
@@ -138,9 +138,9 @@ export function AddWorkerOperationForm({
         })
       }
       id={`worker-form-${shiftId}`}
-      className="grid grid-cols-1 gap-3 sm:grid-cols-12"
+      className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-12"
     >
-      <div className="sm:col-span-4">
+      <div className="col-span-2 md:col-span-4 lg:col-span-4">
         <Label htmlFor="employee_id">Работник</Label>
         <Select name="employee_id" required>
           <SelectTrigger>
@@ -155,7 +155,7 @@ export function AddWorkerOperationForm({
           </SelectContent>
         </Select>
       </div>
-      <div className="sm:col-span-3">
+      <div className="col-span-2 md:col-span-2 lg:col-span-3">
         <Label htmlFor="op-article_id">Артикул</Label>
         <Select name="article_id" defaultValue="none">
           <SelectTrigger>
@@ -171,17 +171,18 @@ export function AddWorkerOperationForm({
           </SelectContent>
         </Select>
       </div>
-      <div className="sm:col-span-3">
+      <div className="col-span-2 md:col-span-2 lg:col-span-3">
         <Label htmlFor="operation">Операция</Label>
         <Input id="operation" name="operation" placeholder="литьё, пристрочка..." />
       </div>
-      <div className="sm:col-span-1">
+      <div className="lg:col-span-1">
         <Label htmlFor="qty">Кол-во</Label>
         <Input id="qty" name="qty" type="number" inputMode="numeric" min={1} required />
       </div>
-      <div className="sm:col-span-1 flex items-end">
-        <Button type="submit" disabled={pending} className="w-full">
+      <div className="lg:col-span-1 flex items-end">
+        <Button type="submit" disabled={pending} size="lg" className="w-full">
           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          <span className="ml-1 lg:hidden">Добавить</span>
         </Button>
       </div>
     </form>

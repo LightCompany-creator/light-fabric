@@ -16,6 +16,7 @@ import {
   addOutputAction,
   addWorkerOperationAction,
 } from "../actions";
+import { CAST_FORMS_OPTIONS, MACHINE_OPTIONS } from "@/lib/constants";
 
 type Article = { id: string; code: string; name: string };
 type Employee = { id: string; tab_number: string; full_name: string };
@@ -42,7 +43,7 @@ export function AddOutputForm({
       id={`output-form-${shiftId}`}
       className="grid grid-cols-1 gap-3 sm:grid-cols-12"
     >
-      <div className="sm:col-span-4">
+      <div className="sm:col-span-3">
         <Label htmlFor="article_id">Артикул</Label>
         <Select name="article_id">
           <SelectTrigger>
@@ -52,6 +53,22 @@ export function AddOutputForm({
             {articles.map((a) => (
               <SelectItem key={a.id} value={a.id}>
                 {a.code} · {a.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="sm:col-span-1">
+        <Label htmlFor="cast_forms">Вид</Label>
+        <Select name="cast_forms" defaultValue="none">
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">—</SelectItem>
+            {CAST_FORMS_OPTIONS.map((n) => (
+              <SelectItem key={n} value={String(n)}>
+                {n}-парка
               </SelectItem>
             ))}
           </SelectContent>
@@ -71,7 +88,19 @@ export function AddOutputForm({
       </div>
       <div className="sm:col-span-2">
         <Label htmlFor="machine">Машина</Label>
-        <Input id="machine" name="machine" placeholder="ИЛМ-3" />
+        <Select name="machine" defaultValue="none">
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">—</SelectItem>
+            {MACHINE_OPTIONS.map((m) => (
+              <SelectItem key={m} value={m}>
+                {m}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="sm:col-span-1">
         <Label htmlFor="downtime_min">Простой</Label>
@@ -204,7 +233,7 @@ export function CloseShiftButton({ shiftId }: { shiftId: string }) {
       onSubmit={(e) => {
         if (
           !confirm(
-            "Закрыть смену? Будут созданы партии, рассчитана зарплата и списано сырьё. Это необратимо.",
+            "Закрыть смену? Будет рассчитана зарплата и списано сырьё по нормам. Это необратимо.",
           )
         )
           e.preventDefault();

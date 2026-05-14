@@ -26,8 +26,8 @@ const USERS = [
     email: "foreman@lightflow.test",
     role: "foreman",
     tab: "TST-0001",
-    fullName: "Тестовый Бригадир (Литейка)",
-    position: "Бригадир",
+    fullName: "Тестовый Начальник цеха (Литейка)",
+    position: "Начальник цеха",
     workshopCode: "LIT",
   },
   {
@@ -54,6 +54,14 @@ const USERS = [
     position: "Бухгалтер",
     workshopCode: null,
   },
+  {
+    email: "admin@lightflow.test",
+    role: "admin",
+    tab: "TST-0005",
+    fullName: "Тестовый Администратор",
+    position: "Администратор системы",
+    workshopCode: null,
+  },
 ];
 
 async function findAuthUserByEmail(email) {
@@ -68,7 +76,14 @@ async function findAuthUserByEmail(email) {
 
 async function getOrCreateAuthUser(email) {
   const existing = await findAuthUserByEmail(email);
-  if (existing) return { user: existing, created: false };
+  if (existing) {
+    const { data, error } = await supabase.auth.admin.updateUserById(existing.id, {
+      password: PASSWORD,
+      email_confirm: true,
+    });
+    if (error) throw error;
+    return { user: data.user, created: false };
+  }
 
   const { data, error } = await supabase.auth.admin.createUser({
     email,

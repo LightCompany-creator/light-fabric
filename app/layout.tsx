@@ -16,12 +16,12 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LightFlow",
+  title: "LightFabric",
   description: "MES-система для производства Light Company",
-  applicationName: "LightFlow",
+  applicationName: "LightFabric",
   appleWebApp: {
     capable: true,
-    title: "LightFlow",
+    title: "LightFabric",
     statusBarStyle: "default",
   },
 };

@@ -101,7 +101,7 @@ export default async function ActiveShiftPage({
     <div className="space-y-6">
       <PageHeader
         title={`Смена · ${shift.workshop?.name ?? ""}`}
-        description={`${format(parseISO(shift.shift_date), "d MMMM yyyy", { locale: ru })} · ${SHIFT_TYPE_LABELS[shift.shift_type]} · бригадир: ${shift.foreman?.full_name ?? "—"}`}
+        description={`${format(parseISO(shift.shift_date), "d MMMM yyyy", { locale: ru })} · ${SHIFT_TYPE_LABELS[shift.shift_type]} · начальник цеха: ${shift.foreman?.full_name ?? "—"}`}
         actions={
           <Badge variant={isOpen ? "secondary" : "outline"} className={isOpen ? "bg-accent text-accent-foreground" : ""}>
             {isOpen ? "Открыта" : "Закрыта"}
@@ -120,6 +120,7 @@ export default async function ActiveShiftPage({
               <TableRow>
                 <TableHead className="w-28">Артикул</TableHead>
                 <TableHead>Название</TableHead>
+                <TableHead className="w-20">Вид</TableHead>
                 <TableHead className="text-right">Пар</TableHead>
                 <TableHead className="text-right">Кг</TableHead>
                 <TableHead className="text-right">Брак</TableHead>
@@ -131,7 +132,7 @@ export default async function ActiveShiftPage({
             <TableBody>
               {outputs.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground">
                     Записей нет
                   </TableCell>
                 </TableRow>
@@ -140,6 +141,9 @@ export default async function ActiveShiftPage({
                   <TableRow key={o.id}>
                     <TableCell className="font-mono">{o.article?.code ?? "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{o.article?.name ?? ""}</TableCell>
+                    <TableCell className="text-sm">
+                      {o.cast_forms ? `${o.cast_forms}-парка` : "—"}
+                    </TableCell>
                     <TableCell className="text-right font-mono-tabular">{o.quantity}</TableCell>
                     <TableCell className="text-right font-mono-tabular">
                       {o.weight ? Number(o.weight).toFixed(2) : "—"}
@@ -152,7 +156,7 @@ export default async function ActiveShiftPage({
                       {o.downtime_min}
                     </TableCell>
                     <TableCell className="text-right">
-                      {isOpen && !o.batch_id ? (
+                      {isOpen ? (
                         <DeleteIconForm
                           action={removeOutputAction}
                           payload={{ id: o.id, shift_id: shift.id }}

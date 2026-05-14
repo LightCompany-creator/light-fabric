@@ -1,5 +1,5 @@
 -- =====================================================
--- LightFlow · Supabase Schema
+-- LightFabric · Supabase Schema
 -- MES-система для производства Light Company
 -- =====================================================
 -- Запуск: открой Supabase Dashboard → SQL Editor → вставь весь файл → Run
@@ -18,9 +18,7 @@ create type material_unit as enum ('кг', 'шт', 'м', 'м²', 'л');
 create type user_role as enum ('foreman', 'technologist', 'director', 'accountant', 'admin');
 create type shift_type as enum ('день', 'ночь');
 create type shift_status as enum ('open', 'closed');
-create type batch_status as enum ('created', 'in_transit', 'received', 'in_work', 'completed', 'shipped', 'rejected');
 create type rate_unit_type as enum ('пара', 'деталь', 'операция', 'единица', 'кг');
-create type route_type as enum ('simple', 'medium', 'complex');
 
 -- =====================================================
 -- СПРАВОЧНИКИ
@@ -51,7 +49,6 @@ create table articles (
   size_max int,
   wholesale_price numeric(10,2),       -- оптовая цена ₽
   weight_per_pair numeric(10,3),       -- средний вес пары, кг
-  route_type route_type default 'medium',
   is_active boolean default true,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
@@ -130,18 +127,6 @@ create table norms (
 
 comment on table norms is 'Нормы расхода материалов на пару';
 
--- Маршруты движения партий
-create table routes (
-  id uuid primary key default uuid_generate_v4(),
-  article_id uuid references articles(id) on delete cascade unique,
-  sequence jsonb not null,               -- массив workshop codes ["LIT", "PACK", "GLU", "ASSY", "MARK"]
-  is_active boolean default true,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
-
-comment on table routes is 'Маршруты движения партий по артикулам';
-
 -- =====================================================
 -- ОПЕРАТИВНЫЕ ДАННЫЕ (ядро системы)
 -- =====================================================
@@ -165,29 +150,6 @@ create index idx_shifts_workshop_date on shifts(workshop_id, shift_date);
 create index idx_shifts_status on shifts(status) where status = 'open';
 create index idx_shifts_foreman on shifts(foreman_id);
 
--- Партии
-create table batches (
-  id uuid primary key default uuid_generate_v4(),
-  batch_number text unique not null,    -- "ЛИТ-110526-01"
-  article_id uuid references articles(id) not null,
-  quantity int not null,                 -- начальное количество пар
-  weight numeric(10,3),                  -- вес партии, кг
-  created_in_workshop uuid references workshops(id) not null,
-  current_workshop uuid references workshops(id),
-  status batch_status not null default 'created',
-  defect_total int default 0,            -- суммарный брак за весь маршрут
-  notes text,
-  created_at timestamptz not null default now(),
-  completed_at timestamptz,
-  shift_id uuid references shifts(id)    -- смена, на которой создана
-);
-
-comment on table batches is '★ Партии · сердце системы';
-create index idx_batches_number on batches(batch_number);
-create index idx_batches_status on batches(status);
-create index idx_batches_current_ws on batches(current_workshop);
-create index idx_batches_article on batches(article_id);
-
 -- Выработка по сменам
 create table shift_outputs (
   id uuid primary key default uuid_generate_v4(),
@@ -196,9 +158,9 @@ create table shift_outputs (
   quantity int not null,                 -- пар произведено
   weight numeric(10,3),                  -- вес, кг
   defect_qty int default 0,
-  machine text,                          -- "ИЛМ-3"
+  machine text,                          -- "KCLKA 1", "Шестёрка" и т.п.
+  cast_forms int,                        -- вид отливки: 4-парка / 6-парка
   downtime_min int default 0,            -- простой, мин
-  batch_id uuid references batches(id),  -- партия (создаётся при закрытии смены)
   notes text,
   created_at timestamptz default now()
 );
@@ -223,26 +185,6 @@ create table shift_workers (
 comment on table shift_workers is 'Работники в смене и их сделка';
 create index idx_workers_shift on shift_workers(shift_id);
 create index idx_workers_employee on shift_workers(employee_id);
-
--- Движения партий между цехами
-create table batch_movements (
-  id uuid primary key default uuid_generate_v4(),
-  batch_id uuid references batches(id) on delete cascade not null,
-  from_workshop uuid references workshops(id),  -- null для первой записи
-  to_workshop uuid references workshops(id) not null,
-  moved_at timestamptz not null default now(),
-  moved_by uuid references employees(id),
-  qty_in int,                            -- сколько пришло (с предыдущего цеха)
-  qty_out int,                           -- сколько вышло
-  defect_at_step int default 0,          -- брак на этом этапе
-  notes text,
-  created_at timestamptz default now()
-);
-
-comment on table batch_movements is '★ Движения партий между цехами · полная история';
-create index idx_movements_batch on batch_movements(batch_id);
-create index idx_movements_to_ws on batch_movements(to_workshop);
-create index idx_movements_date on batch_movements(moved_at desc);
 
 -- Расход сырья
 create table material_consumption (
@@ -310,36 +252,6 @@ $$ language plpgsql;
 create trigger update_articles_updated_at before update on articles
   for each row execute function update_updated_at_column();
 
-create trigger update_routes_updated_at before update on routes
-  for each row execute function update_updated_at_column();
-
--- Функция генерации номера партии
-create or replace function generate_batch_number(workshop_code text, batch_date date)
-returns text as $$
-declare
-  date_part text;
-  workshop_prefix text;
-  next_num int;
-  result_number text;
-begin
-  date_part := to_char(batch_date, 'DDMMYY');
-  workshop_prefix := upper(workshop_code);
-
-  -- Считаем партии этого цеха за этот день
-  select coalesce(max(
-    cast(split_part(batch_number, '-', 3) as int)
-  ), 0) + 1
-  into next_num
-  from batches b
-  join workshops w on w.id = b.created_in_workshop
-  where w.code = workshop_code
-    and date(b.created_at) = batch_date;
-
-  result_number := workshop_prefix || '-' || date_part || '-' || lpad(next_num::text, 2, '0');
-  return result_number;
-end;
-$$ language plpgsql;
-
 -- =====================================================
 -- ROW LEVEL SECURITY (RLS)
 -- =====================================================
@@ -351,12 +263,9 @@ alter table materials enable row level security;
 alter table employees enable row level security;
 alter table rates enable row level security;
 alter table norms enable row level security;
-alter table routes enable row level security;
 alter table shifts enable row level security;
-alter table batches enable row level security;
 alter table shift_outputs enable row level security;
 alter table shift_workers enable row level security;
-alter table batch_movements enable row level security;
 alter table material_consumption enable row level security;
 alter table payroll_lines enable row level security;
 alter table sync_log enable row level security;
@@ -372,8 +281,6 @@ create policy "Authenticated users can read all"
   on employees for select using (auth.role() = 'authenticated');
 create policy "Authenticated users can read all"
   on rates for select using (auth.role() = 'authenticated');
-create policy "Authenticated users can read all"
-  on routes for select using (auth.role() = 'authenticated');
 
 -- На остальные таблицы политики будут добавлены при разработке
 -- (зависят от роли пользователя — это делается в Claude Code на этапе авторизации)
@@ -384,7 +291,7 @@ create policy "Authenticated users can read all"
 
 -- Цеха (9 шт, в порядке потока)
 insert into workshops (code, name, seq_order, color, description) values
-  ('RAW', 'Сырьё', 1, '#8B5CF6', 'Склад сырья и материалов'),
+  ('ANG', 'Ангар', 1, '#8B5CF6', 'Производство гранул ЭВА и хранение сырья'),
   ('LIT', 'Литейка', 2, '#EF4444', 'Литейный цех (ИЛМ)'),
   ('PACK', 'Упаковка', 3, '#214A8C', 'Упаковка-диспетчер: обрезка облоя, сортировка'),
   ('CUT', 'Крой', 4, '#06B6D4', 'Раскрой текстиля и меха'),
@@ -392,7 +299,9 @@ insert into workshops (code, name, seq_order, color, description) values
   ('GLU', 'Клеевой', 6, '#F59E0B', 'Вклейка вкладышей, склейка подошв'),
   ('ASSY', 'Обшив', 7, '#14B8A6', 'Установка фурнитуры и ремешков'),
   ('MARK', 'Маркировка', 8, '#6366F1', 'Логотип, артикул, ОТК'),
-  ('SHIP', 'Склад', 9, '#10B981', 'Хранение и отгрузка готовой продукции');
+  ('SHIP', 'Склад', 9, '#10B981', 'Хранение и отгрузка готовой продукции'),
+  ('ADM',  'Администрация', 10, '#64748B', 'Дирекция, бухгалтерия, ИТ — вне производственного потока'),
+  ('LST',  'Листы', 11, '#84CC16', 'Производственная линия для всех не-обувных направлений: ЭВА-листы, коврики, автонакидки, стропа, тесьма');
 
 -- Материалы (базовый набор)
 insert into materials (code, name, unit, current_stock) values
@@ -412,117 +321,11 @@ insert into materials (code, name, unit, current_stock) values
   ('GLU-PU', 'Клей полиуретановый', 'кг', 80);
 
 -- =====================================================
--- АРТИКУЛЫ LIGHT COMPANY (реальные данные с light-c.ru)
+-- РАСЦЕНКИ (общие по цехам — конкретные задаст технолог через UI)
 -- =====================================================
 
--- ПРОСТЫЕ маршруты: Литьё → Упаковка → Маркировка
-insert into articles (code, name, material, box_qty, size_min, size_max, wholesale_price, route_type) values
-  ('022',      'Сабо мужские',                'ЭВА',     6,  41, 46, 240,  'simple'),
-  ('022/1',    'Сабо мужские',                'ЭВА',     6,  41, 46, 180,  'simple'),
-  ('3022/1',   'Сабо мужское',                'ЭВА',     12, 41, 45, 288,  'simple'),
-  ('3022м',    'Сабо мужское',                'ЭВА',     12, 41, 45, 420,  'simple'),
-  ('4022',     'Сабо мужское',                'ЭВА',     12, 40, 45, 300,  'simple'),
-  ('116м',     'Галоши с надставкой',         'ЭВА',     12, 41, 46, 432,  'simple'),
-  ('116нм',    'Галоши с надставкой',         'ЭВА',     12, 41, 46, 408,  'simple'),
-  ('905',      'Галоши мужские',              'ЭВА',     12, 40, 45, 288,  'simple'),
-  ('905/1',    'Галоши мужские',              'ЭВА',     12, 40, 45, 204,  'simple'),
-  ('905/м',    'Галоши мужские',              'ЭВА',     12, 40, 45, 324,  'simple'),
-  ('907',      'Галоши мужские',              'ЭВА',     12, 40, 46, 264,  'simple'),
-  ('907/1',    'Галоши без утеплителя',       'ЭВА',     12, 40, 46, 204,  'simple'),
-  ('907м',     'Галоши мужские',              'ЭВА',     12, 40, 46, 324,  'simple'),
-  ('909',      'Галоши мужские',              'ЭВА',     12, 40, 45, 264,  'simple'),
-  ('909м',     'Галоши мужские',              'ЭВА',     12, 40, 45, 324,  'simple'),
-  ('С-044',    'Галоши мужские',              'ЭВА',     12, 41, 45, 300,  'simple'),
-  ('С-044м',   'Галоши мужские',              'ЭВА',     12, 41, 45, 360,  'simple'),
-  ('043/1',    'Галоши силиконовые',          'силикон', 12, 41, 45, 258,  'simple');
-
--- СРЕДНИЕ маршруты: Литьё → Упаковка → Клей → Обшив → Маркировка
-insert into articles (code, name, material, box_qty, size_min, size_max, wholesale_price, route_type) values
-  ('112/1',    'Сапоги мужские',              'ЭВА',     8,  41, 46, 756,  'medium'),
-  ('112/м',    'Сапоги мужские',              'ЭВА',     8,  41, 46, 900,  'medium'),
-  ('112/н',    'Сапоги мужские',              'ЭВА',     8,  41, 46, 828,  'medium'),
-  ('184/1',    'Сапоги мужские',              'ЭВА',     8,  41, 46, 720,  'medium'),
-  ('184/м',    'Сапоги мужские',              'ЭВА',     8,  41, 46, 900,  'medium'),
-  ('184/н',    'Сапоги мужские',              'ЭВА',     8,  41, 46, 804,  'medium'),
-  ('187/м',    'Сапоги мужские',              'ЭВА',     8,  41, 46, 960,  'medium'),
-  ('187/н',    'Сапоги мужские',              'ЭВА',     8,  41, 46, 864,  'medium'),
-  ('220/1',    'Полусапожки мужские',         'ЭВА',     8,  41, 46, 456,  'medium'),
-  ('220/м',    'Полусапожки мужские',         'ЭВА',     8,  41, 46, 624,  'medium'),
-  ('220/н',    'Полусапожки мужские',         'ЭВА',     8,  41, 46, 540,  'medium'),
-  ('412м',     'Сапоги мужские',              'ЭВА',     8,  40, 45, 864,  'medium'),
-  ('412н',     'Сапоги мужские',              'ЭВА',     8,  40, 45, 768,  'medium'),
-  ('413м',     'Сапоги мужские',              'ЭВА',     8,  40, 45, 924,  'medium'),
-  ('413н',     'Сапоги мужские',              'ЭВА',     8,  40, 45, 828,  'medium'),
-  ('А-100м',   'Сапоги мужские',              'ЭВА',     8,  42, 45, 756,  'medium'),
-  ('А-100мм',  'Сапоги мужские',              'ЭВА',     8,  42, 45, 816,  'medium'),
-  ('А-100н',   'Сапоги мужские',              'ЭВА',     8,  42, 45, 648,  'medium'),
-  ('А-100нм',  'Сапоги мужские',              'ЭВА',     8,  42, 45, 708,  'medium'),
-  ('038/н',    'Сапоги силиконовые',          'силикон', 6,  41, 45, 468,  'medium'),
-  ('046/н',    'Сапоги мужские',              'ПВХ',     6,  41, 46, 420,  'medium');
-
--- СЛОЖНЫЕ маршруты: Литьё → Упаковка → Крой → Швейка → Клей → Обшив → Маркировка
-insert into articles (code, name, material, box_qty, size_min, size_max, wholesale_price, route_type) values
-  ('113/1',         'Сапоги с манжетом',          'ЭВА',     8, 41, 46, 816,  'complex'),
-  ('113/м',         'Сапоги с манжетом',          'ЭВА',     8, 41, 46, 960,  'complex'),
-  ('113/н',         'Сапоги с манжетом',          'ЭВА',     8, 41, 46, 888,  'complex'),
-  ('038/н-манжет',  'Сапоги силиконовые манжет',  'силикон', 6, 41, 45, 576,  'complex'),
-  ('046/н-манжет',  'Сапоги ПВХ с манжетом',      'ПВХ',     6, 41, 46, 468,  'complex'),
-  ('АВ-300',        'Сапоги Аляска',              'ЭВА',     4, 41, 46, 840,  'complex'),
-  ('АВ-300н',       'Сапоги Аляска утеплённые',   'ЭВА',     4, 41, 46, 1080, 'complex');
-
--- =====================================================
--- МАРШРУТЫ для каждого артикула
--- =====================================================
-
--- Простые маршруты
-insert into routes (article_id, sequence)
-select id, '["LIT", "PACK", "MARK", "SHIP"]'::jsonb
-from articles where route_type = 'simple';
-
--- Средние маршруты
-insert into routes (article_id, sequence)
-select id, '["LIT", "PACK", "GLU", "ASSY", "MARK", "SHIP"]'::jsonb
-from articles where route_type = 'medium';
-
--- Сложные маршруты
-insert into routes (article_id, sequence)
-select id, '["LIT", "PACK", "CUT", "SEW", "GLU", "ASSY", "MARK", "SHIP"]'::jsonb
-from articles where route_type = 'complex';
-
--- =====================================================
--- РАСЦЕНКИ (тестовые значения, реальные задаст технолог)
--- =====================================================
-
--- Литейка: дифференцированные расценки по типу
--- Простые (галоши, сабо)
-insert into rates (workshop_id, article_id, rate_per_unit, unit_type)
-select
-  (select id from workshops where code = 'LIT'),
-  a.id,
-  4.0,
-  'пара'::rate_unit_type
-from articles a where a.route_type = 'simple';
-
--- Средние (сапоги, полусапожки)
-insert into rates (workshop_id, article_id, rate_per_unit, unit_type)
-select
-  (select id from workshops where code = 'LIT'),
-  a.id,
-  15.0,
-  'пара'::rate_unit_type
-from articles a where a.route_type = 'medium';
-
--- Сложные (с манжетом, Аляски)
-insert into rates (workshop_id, article_id, rate_per_unit, unit_type)
-select
-  (select id from workshops where code = 'LIT'),
-  a.id,
-  20.0,
-  'пара'::rate_unit_type
-from articles a where a.route_type = 'complex';
-
--- Общие расценки по цехам (article_id = null)
 insert into rates (workshop_id, rate_per_unit, unit_type) values
+  ((select id from workshops where code = 'LIT'),  10.0, 'пара'),
   ((select id from workshops where code = 'PACK'), 2.0,  'пара'),
   ((select id from workshops where code = 'CUT'),  1.5,  'деталь'),
   ((select id from workshops where code = 'SEW'),  3.0,  'операция'),
@@ -531,40 +334,13 @@ insert into rates (workshop_id, rate_per_unit, unit_type) values
   ((select id from workshops where code = 'MARK'), 1.0,  'пара'),
   ((select id from workshops where code = 'SHIP'), 0.5,  'пара');
 
--- =====================================================
--- НОРМЫ расхода ЭВА (тестовые, по типу артикула)
--- =====================================================
-
--- Простые: 0.25 кг ЭВА на пару
-insert into norms (article_id, material_id, qty_per_pair)
-select a.id, (select id from materials where code = 'EVA-001'), 0.25
-from articles a where a.route_type = 'simple';
-
--- Средние: 0.7 кг ЭВА на пару
-insert into norms (article_id, material_id, qty_per_pair)
-select a.id, (select id from materials where code = 'EVA-001'), 0.7
-from articles a where a.route_type = 'medium' and a.material = 'ЭВА';
-
--- Сложные: 1.0 кг ЭВА на пару
-insert into norms (article_id, material_id, qty_per_pair)
-select a.id, (select id from materials where code = 'EVA-001'), 1.0
-from articles a where a.route_type = 'complex' and a.material = 'ЭВА';
-
--- ПВХ модели
-insert into norms (article_id, material_id, qty_per_pair)
-select a.id, (select id from materials where code = 'PVH-001'), 0.8
-from articles a where a.material = 'ПВХ';
-
--- Силиконовые модели
-insert into norms (article_id, material_id, qty_per_pair)
-select a.id, (select id from materials where code = 'SIL-001'), 0.6
-from articles a where a.material = 'силикон';
+-- Артикулы, расценки и нормы по конкретным артикулам заводятся
+-- через импорт из 1С (XLSX) и UI технолога.
 
 -- =====================================================
 -- ГОТОВО
 -- =====================================================
 -- Проверочный запрос:
--- select count(*) as total_articles from articles;            -- должно быть 46
--- select code, name, route_type from articles order by code;
--- select w.name, count(r.id) as rates_count from workshops w
---   left join rates r on r.workshop_id = w.id group by w.name;
+-- select count(*) from workshops;     -- 11
+-- select count(*) from materials;     -- 14
+-- select w.name, r.rate_per_unit from rates r join workshops w on w.id = r.workshop_id;

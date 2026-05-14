@@ -14,11 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  MATERIAL_OPTIONS,
-  ROUTE_TYPE_OPTIONS,
-  type ArticleInput,
-} from "./schema";
+import { MATERIAL_OPTIONS, type ArticleInput } from "./schema";
 import { createArticleAction, updateArticleAction, type FormState } from "./actions";
 
 const INITIAL: FormState = { error: null };
@@ -53,13 +49,6 @@ export function ArticleForm({
             error={errs.material}
             defaultValue={initial?.material ?? "ЭВА"}
             options={MATERIAL_OPTIONS.map((m) => ({ value: m, label: m }))}
-          />
-          <SelectField
-            label="Маршрут"
-            name="route_type"
-            error={errs.route_type}
-            defaultValue={initial?.route_type ?? "medium"}
-            options={ROUTE_TYPE_OPTIONS}
           />
         </CardContent>
       </Card>

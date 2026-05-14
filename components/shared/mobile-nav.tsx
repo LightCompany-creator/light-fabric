@@ -25,7 +25,7 @@ export function MobileNav({ role }: { role: Enums<"user_role"> | null }) {
       </SheetTrigger>
       <SheetContent side="left" className="w-64 p-3">
         <SheetHeader className="text-left">
-          <SheetTitle className="text-brand">LightFlow</SheetTitle>
+          <SheetTitle className="text-brand">LightFabric</SheetTitle>
         </SheetHeader>
         <div className="mt-4">
           <NavList role={role} onNavigate={() => setOpen(false)} />

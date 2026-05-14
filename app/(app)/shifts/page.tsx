@@ -150,7 +150,7 @@ export default async function ShiftsListPage({
               <TableRow>
                 <TableHead className="w-28">Дата</TableHead>
                 <TableHead className="w-32">Цех</TableHead>
-                <TableHead>Бригадир</TableHead>
+                <TableHead>Начальник цеха</TableHead>
                 <TableHead className="w-24">Тип</TableHead>
                 <TableHead className="w-24">Статус</TableHead>
                 <TableHead className="text-right">Пар</TableHead>

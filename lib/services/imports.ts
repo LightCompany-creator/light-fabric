@@ -54,13 +54,40 @@ export type EmployeeImportRow = {
   hire_date: string | null;
 };
 
-const TAB_KEYS = ["tab_number", "tabelnyy_nomer", "tab", "tab_no", "n_tab", "tabelny_nomer", "tabelnyi_nomer", "tab_n"];
-const NAME_KEYS = ["full_name", "fio", "f_i_o", "imya", "name", "polnoe_imya"];
-const WS_KEYS = ["workshop_code", "tseh", "cech", "tseh_kod", "workshop"];
-const POS_KEYS = ["position", "doljnost", "dolzhnost"];
-const ROLE_KEYS = ["role", "rol"];
-const ACTIVE_KEYS = ["is_active", "aktiven", "active", "rabotaet"];
-const HIRE_KEYS = ["hire_date", "data_priema", "data_priema_na_rabotu"];
+// Все ключи в нижнем регистре и snake_case — это нормализованные заголовки
+// (см. normalize() выше: spaces/ё/punct → _, ё → е, lower).
+// Поддерживаем русские, английские и транслитерированные варианты.
+const TAB_KEYS = [
+  "tab_number", "tab", "tab_no", "tab_n",
+  "табельный_номер", "табельный", "таб_номер", "таб",
+  "tabelnyy_nomer", "tabelny_nomer", "tabelnyi_nomer", "n_tab",
+];
+const NAME_KEYS = [
+  "full_name", "name",
+  "фио", "ф_и_о", "имя", "полное_имя",
+  "fio", "f_i_o", "imya", "polnoe_imya",
+];
+const WS_KEYS = [
+  "workshop_code", "workshop", "workshop_id",
+  "цех", "цех_код", "код_цеха",
+  "tseh", "cech", "tseh_kod",
+];
+const POS_KEYS = [
+  "position",
+  "должность",
+  "doljnost", "dolzhnost",
+];
+const ROLE_KEYS = ["role", "роль", "rol"];
+const ACTIVE_KEYS = [
+  "is_active", "active",
+  "активен", "работает", "действует",
+  "aktiven", "rabotaet",
+];
+const HIRE_KEYS = [
+  "hire_date",
+  "дата_приема", "дата_приёма", "принят",
+  "data_priema", "data_priema_na_rabotu",
+];
 
 function pickFirst(row: Record<string, unknown>, keys: string[]): unknown {
   for (const k of keys) if (k in row && row[k] !== null && row[k] !== "") return row[k];
@@ -109,7 +136,9 @@ const VALID_ROLES = new Set([
 ]);
 
 const RU_ROLE_MAP: Record<string, EmployeeImportRow["role"]> = {
-  бригадир: "foreman",
+  "начальник цеха": "foreman",
+  начцеха: "foreman",
+  бригадир: "foreman", // обратная совместимость
   технолог: "technologist",
   директор: "director",
   бухгалтер: "accountant",
@@ -146,13 +175,14 @@ export function parseEmployeesXlsx(buffer: ArrayBuffer): ImportPreview<EmployeeI
       }
     }
 
+    const activeRaw = pickFirst(r, ACTIVE_KEYS);
     valid.push({
       tab_number: tab,
       full_name: name,
       workshop_code: wsCode ? String(wsCode).trim().toUpperCase() : null,
       position: pickFirst(r, POS_KEYS) ? String(pickFirst(r, POS_KEYS)).trim() : null,
       role,
-      is_active: r["is_active"] !== undefined ? toBool(pickFirst(r, ACTIVE_KEYS)) : true,
+      is_active: activeRaw === null ? true : toBool(activeRaw),
       hire_date: toDate(pickFirst(r, HIRE_KEYS)),
     });
   });
@@ -228,17 +258,15 @@ export type ArticleImportRow = {
   size_min: number | null;
   size_max: number | null;
   wholesale_price: number | null;
-  route_type: "simple" | "medium" | "complex" | null;
 };
 
-const CODE_KEYS = ["code", "kod", "artikul"];
-const ART_NAME_KEYS = ["name", "naimenovanie", "imya"];
-const MATERIAL_KEYS = ["material"];
-const BOX_KEYS = ["box_qty", "v_korobke", "kor", "v_kor"];
-const SIZE_MIN_KEYS = ["size_min", "razmer_ot", "ot"];
-const SIZE_MAX_KEYS = ["size_max", "razmer_do", "do"];
-const PRICE_KEYS = ["wholesale_price", "tsena_optovaya", "opt_tsena", "opt", "price"];
-const ROUTE_TYPE_KEYS = ["route_type", "tip_marshruta", "marshrut"];
+const CODE_KEYS = ["code", "артикул", "код", "kod", "artikul"];
+const ART_NAME_KEYS = ["name", "наименование", "название", "имя", "naimenovanie", "imya"];
+const MATERIAL_KEYS = ["material", "материал"];
+const BOX_KEYS = ["box_qty", "в_коробке", "пар_в_коробке", "v_korobke", "kor", "v_kor"];
+const SIZE_MIN_KEYS = ["size_min", "размер_от", "razmer_ot", "ot"];
+const SIZE_MAX_KEYS = ["size_max", "размер_до", "razmer_do", "do"];
+const PRICE_KEYS = ["wholesale_price", "цена_оптовая", "опт_цена", "цена", "tsena_optovaya", "opt_tsena", "opt", "price"];
 
 const VALID_MATERIALS = new Set([
   "ЭВА",
@@ -248,13 +276,6 @@ const VALID_MATERIALS = new Set([
   "фурнитура",
   "прочее",
 ]);
-
-const VALID_ROUTES = new Set(["simple", "medium", "complex"]);
-const RU_ROUTE_MAP: Record<string, ArticleImportRow["route_type"]> = {
-  простой: "simple",
-  средний: "medium",
-  сложный: "complex",
-};
 
 function toInt(v: unknown): number | null {
   if (v === null || v === "" || v === undefined) return null;
@@ -303,20 +324,6 @@ export function parseArticlesXlsx(buffer: ArrayBuffer): ImportPreview<ArticleImp
       });
       return;
     }
-    const rtRaw = String(pickFirst(r, ROUTE_TYPE_KEYS) ?? "").toLowerCase().trim();
-    let routeType: ArticleImportRow["route_type"] = null;
-    if (rtRaw) {
-      if (VALID_ROUTES.has(rtRaw)) routeType = rtRaw as ArticleImportRow["route_type"];
-      else if (RU_ROUTE_MAP[rtRaw]) routeType = RU_ROUTE_MAP[rtRaw];
-      else {
-        errors.push({
-          rowIndex: idx,
-          field: "route_type",
-          message: `Маршрут должен быть simple|medium|complex (а пришло: "${rtRaw}")`,
-        });
-        return;
-      }
-    }
 
     valid.push({
       code,
@@ -326,7 +333,6 @@ export function parseArticlesXlsx(buffer: ArrayBuffer): ImportPreview<ArticleImp
       size_min: toInt(pickFirst(r, SIZE_MIN_KEYS)),
       size_max: toInt(pickFirst(r, SIZE_MAX_KEYS)),
       wholesale_price: toNum(pickFirst(r, PRICE_KEYS)),
-      route_type: routeType,
     });
   });
 
@@ -355,7 +361,6 @@ export async function applyArticlesImport(
       size_min: r.size_min,
       size_max: r.size_max,
       wholesale_price: r.wholesale_price,
-      route_type: r.route_type ?? "medium",
     };
     const { error } = await client
       .from("articles")

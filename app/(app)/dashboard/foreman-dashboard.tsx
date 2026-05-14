@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ClipboardList, Inbox, Package, Plus } from "lucide-react";
+import { ClipboardList, Plus } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/server";
@@ -71,25 +71,22 @@ export async function ForemanDashboard({ user }: { user: CurrentUser }) {
         </Card>
       )}
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <CounterCard
-          icon={<Inbox className="h-5 w-5" />}
-          label="Входящие партии"
-          value={data.incomingCount}
-          href="/batches/incoming"
-        />
-        <CounterCard
-          icon={<Package className="h-5 w-5" />}
-          label="Партии в работе"
-          value={data.inWorkCount}
-          href="/batches"
-        />
-        <CounterCard
-          icon={<ClipboardList className="h-5 w-5" />}
-          label="Все смены цеха"
-          value="→"
-          href="/shifts"
-        />
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Link href="/shifts">
+          <Card className="transition-colors hover:bg-secondary">
+            <CardContent className="flex items-center justify-between pt-6">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Все смены цеха
+                </p>
+                <p className="mt-1 font-mono-tabular text-3xl font-bold">→</p>
+              </div>
+              <div className="text-muted-foreground">
+                <ClipboardList className="h-5 w-5" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
       </section>
 
       <Card>
@@ -101,33 +98,5 @@ export async function ForemanDashboard({ user }: { user: CurrentUser }) {
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-function CounterCard({
-  icon,
-  label,
-  value,
-  href,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number | string;
-  href: string;
-}) {
-  return (
-    <Link href={href}>
-      <Card className="transition-colors hover:bg-secondary">
-        <CardContent className="flex items-center justify-between pt-6">
-          <div>
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">
-              {label}
-            </p>
-            <p className="mt-1 font-mono-tabular text-3xl font-bold">{value}</p>
-          </div>
-          <div className="text-muted-foreground">{icon}</div>
-        </CardContent>
-      </Card>
-    </Link>
   );
 }

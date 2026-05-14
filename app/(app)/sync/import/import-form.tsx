@@ -53,7 +53,6 @@ export function ArticlesImportForm() {
         "box_qty (Пар в коробке)",
         "size_min / size_max",
         "wholesale_price",
-        "route_type (simple/medium/complex)",
       ]}
     />
   );

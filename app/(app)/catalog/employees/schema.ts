@@ -39,7 +39,7 @@ export type EmployeeInput = z.infer<typeof EmployeeSchema>;
 
 export const ROLE_OPTIONS: { value: string; label: string }[] = [
   { value: "none", label: "Без логина (рабочий)" },
-  { value: "foreman", label: "Бригадир" },
+  { value: "foreman", label: "Начальник цеха" },
   { value: "technologist", label: "Технолог" },
   { value: "director", label: "Директор" },
   { value: "accountant", label: "Бухгалтер" },

@@ -1,8 +1,8 @@
-// Доменные константы LightFlow.
+// Доменные константы LightFabric.
 // Лейблы и цвета берём отсюда, чтобы не дублировать русские строки в компонентах.
 
 export const WORKSHOP_CODES = [
-  "RAW",
+  "ANG",
   "LIT",
   "PACK",
   "CUT",
@@ -11,12 +11,14 @@ export const WORKSHOP_CODES = [
   "ASSY",
   "MARK",
   "SHIP",
+  "ADM",
+  "LST",
 ] as const;
 
 export type WorkshopCode = (typeof WORKSHOP_CODES)[number];
 
 export const WORKSHOP_LABELS: Record<WorkshopCode, string> = {
-  RAW: "Сырьё",
+  ANG: "Ангар",
   LIT: "Литейка",
   PACK: "Упаковка",
   CUT: "Крой",
@@ -25,11 +27,13 @@ export const WORKSHOP_LABELS: Record<WorkshopCode, string> = {
   ASSY: "Обшив",
   MARK: "Маркировка",
   SHIP: "Склад",
+  ADM: "Администрация",
+  LST: "Листы",
 };
 
 // Соответствие CSS-переменным из app/globals.css.
 export const WORKSHOP_COLOR_VARS: Record<WorkshopCode, string> = {
-  RAW: "var(--ws-raw)",
+  ANG: "var(--ws-ang)",
   LIT: "var(--ws-lit)",
   PACK: "var(--ws-pack)",
   CUT: "var(--ws-cut)",
@@ -38,39 +42,31 @@ export const WORKSHOP_COLOR_VARS: Record<WorkshopCode, string> = {
   ASSY: "var(--ws-assy)",
   MARK: "var(--ws-mark)",
   SHIP: "var(--ws-ship)",
+  ADM: "var(--ws-adm)",
+  LST: "var(--ws-lst)",
 };
-
-export const ROUTE_SEQUENCES: Record<RouteType, WorkshopCode[]> = {
-  simple: ["LIT", "PACK", "MARK", "SHIP"],
-  medium: ["LIT", "PACK", "GLU", "ASSY", "MARK", "SHIP"],
-  complex: ["LIT", "PACK", "CUT", "SEW", "GLU", "ASSY", "MARK", "SHIP"],
-};
-
-export type RouteType = "simple" | "medium" | "complex";
-
-export const BATCH_STATUS_LABELS: Record<BatchStatus, string> = {
-  created: "Создана",
-  in_transit: "В пути",
-  received: "Принята",
-  in_work: "В работе",
-  completed: "Готова",
-  shipped: "Отгружена",
-  rejected: "Брак",
-};
-
-export type BatchStatus =
-  | "created"
-  | "in_transit"
-  | "received"
-  | "in_work"
-  | "completed"
-  | "shipped"
-  | "rejected";
 
 export const SHIFT_TYPE_LABELS = { день: "Дневная", ночь: "Ночная" } as const;
 
+// Станки литейного цеха (фиксированный список — селект в форме выработки).
+export const MACHINE_OPTIONS = [
+  "KCLKA 1",
+  "KCLKA 2",
+  "KCLKA 3",
+  "Четвёрка",
+  "Шестёрка",
+  "Восьмёрка",
+] as const;
+
+export type MachineCode = (typeof MACHINE_OPTIONS)[number];
+
+// Вид отливки — сколько форм в одном цикле литья.
+export const CAST_FORMS_OPTIONS = [4, 6] as const;
+
+export type CastForms = (typeof CAST_FORMS_OPTIONS)[number];
+
 export const USER_ROLE_LABELS = {
-  foreman: "Бригадир",
+  foreman: "Начальник цеха",
   technologist: "Технолог",
   director: "Директор",
   accountant: "Бухгалтер",
@@ -79,15 +75,35 @@ export const USER_ROLE_LABELS = {
 
 export type UserRole = keyof typeof USER_ROLE_LABELS;
 
-// Префикс для batch_number формата "ЦЕХ-ДДММГГ-NN" (раздел 10 контекста).
-export const BATCH_NUMBER_PREFIX: Record<WorkshopCode, string> = {
-  RAW: "СЫР",
-  LIT: "ЛИТ",
-  PACK: "УПК",
-  CUT: "КРО",
-  SEW: "ШВЕ",
-  GLU: "КЛЕ",
-  ASSY: "ОБШ",
-  MARK: "МРК",
-  SHIP: "СКЛ",
+// Направления продукции — соответствуют каталогу на light-c.shop.
+// См. таблицу product_lines в Supabase. parent_id зарезервирован под
+// будущие подгруппы внутри «Обувь» (Галоши/Сабо/Сапоги/Туфли).
+export const PRODUCT_LINE_CODES = [
+  "SHOES",
+  "EVA_SHEETS",
+  "MATS",
+  "CAR_COVERS",
+  "STRAPS",
+  "TAPES",
+] as const;
+
+export type ProductLineCode = (typeof PRODUCT_LINE_CODES)[number];
+
+export const PRODUCT_LINE_LABELS: Record<ProductLineCode, string> = {
+  SHOES: "Обувь из ЭВА",
+  EVA_SHEETS: "ЭВА-листы",
+  MATS: "Придверные коврики",
+  CAR_COVERS: "Автонакидки",
+  STRAPS: "Стропа",
+  TAPES: "Тесьма",
+};
+
+// Все направления сейчас плоские (нет родительских узлов).
+export const PRODUCT_LINE_PARENT: Record<ProductLineCode, ProductLineCode | null> = {
+  SHOES: null,
+  EVA_SHEETS: null,
+  MATS: null,
+  CAR_COVERS: null,
+  STRAPS: null,
+  TAPES: null,
 };

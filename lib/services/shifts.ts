@@ -1,9 +1,8 @@
 // Управление сменами. Открытие, добавление выработки и работников, закрытие.
-// Закрытие — это оркестрация: партии + ЗП + списание сырья + смена статуса.
+// Закрытие — это оркестрация: ЗП + списание сырья + смена статуса.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Tables } from "@/lib/supabase/types";
-import { createBatchFromOutput } from "./batches";
 import { calculateShiftPay, type WorkerOperation } from "./payroll";
 
 export async function openShift(
@@ -54,6 +53,7 @@ export async function addOutput(
     weight: number | null;
     defectQty: number;
     machine: string | null;
+    castForms: number | null;
     downtimeMin: number;
   },
 ): Promise<string> {
@@ -66,6 +66,7 @@ export async function addOutput(
       weight: args.weight,
       defect_qty: args.defectQty,
       machine: args.machine,
+      cast_forms: args.castForms,
       downtime_min: args.downtimeMin,
     } as never)
     .select("id")
@@ -113,56 +114,35 @@ export async function removeOutput(
   client: SupabaseClient<Database>,
   outputId: string,
 ): Promise<void> {
-  // Если у выработки есть batch_id — удалять нельзя (смена уже была закрыта).
-  const { data } = await client
-    .from("shift_outputs")
-    .select("batch_id")
-    .eq("id", outputId)
-    .maybeSingle();
-  const out = data as Pick<Tables<"shift_outputs">, "batch_id"> | null;
-  if (out?.batch_id) {
-    throw new Error("Нельзя удалить выработку — партия уже создана");
-  }
   const { error } = await client.from("shift_outputs").delete().eq("id", outputId);
   if (error) throw error;
 }
 
 /**
  * Закрытие смены:
- *  1) Создаёт партии из всех записей выработки (если ещё не созданы).
- *  2) Считает сделку каждого работника.
- *  3) Списывает сырьё по нормативу (qty × qty_per_pair) и уменьшает остаток.
- *  4) Переводит смену в статус 'closed', проставляет closed_at.
+ *  1) Считает сделку каждого работника.
+ *  2) Списывает сырьё по нормативу (qty × qty_per_pair) и уменьшает остаток.
+ *  3) Переводит смену в статус 'closed', проставляет closed_at.
  */
 export async function closeShift(
   client: SupabaseClient<Database>,
   shiftId: string,
-): Promise<{ batchIds: string[]; consumption: number }> {
-  // 1. Выработка
+): Promise<{ consumption: number }> {
   const { data: outsRaw, error: oErr } = await client
     .from("shift_outputs")
-    .select("id, article_id, quantity, batch_id")
+    .select("id, article_id, quantity")
     .eq("shift_id", shiftId);
   if (oErr) throw oErr;
   const outs = (outsRaw ?? []) as Pick<
     Tables<"shift_outputs">,
-    "id" | "article_id" | "quantity" | "batch_id"
+    "id" | "article_id" | "quantity"
   >[];
   if (outs.length === 0) {
     throw new Error("Невозможно закрыть смену без записей выработки");
   }
 
-  // 2. Партии
-  const batchIds: string[] = [];
-  for (const out of outs) {
-    const id = await createBatchFromOutput(client, out.id);
-    batchIds.push(id);
-  }
-
-  // 3. ЗП
   await calculateShiftPay(client, shiftId);
 
-  // 4. Списание сырья по нормам
   let consumptionCount = 0;
   for (const out of outs) {
     const { data: normsRaw } = await client
@@ -185,7 +165,6 @@ export async function closeShift(
         is_by_norm: true,
       } as never);
 
-      // Уменьшаем остаток на складе материала
       const { data: matRaw } = await client
         .from("materials")
         .select("current_stock")
@@ -203,12 +182,11 @@ export async function closeShift(
     }
   }
 
-  // 5. Смена → closed
   const { error: cErr } = await client
     .from("shifts")
     .update({ status: "closed", closed_at: new Date().toISOString() } as never)
     .eq("id", shiftId);
   if (cErr) throw cErr;
 
-  return { batchIds, consumption: consumptionCount };
+  return { consumption: consumptionCount };
 }

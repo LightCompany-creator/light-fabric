@@ -4,7 +4,6 @@ import { updateSession } from "@/lib/supabase/middleware";
 const PROTECTED_PREFIXES = [
   "/dashboard",
   "/shifts",
-  "/batches",
   "/catalog",
   "/reports",
   "/sync",

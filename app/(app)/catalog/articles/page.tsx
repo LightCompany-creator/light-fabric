@@ -5,7 +5,6 @@ import type { Tables } from "@/lib/supabase/types";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -22,19 +21,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MATERIAL_OPTIONS, ROUTE_TYPE_OPTIONS } from "./schema";
+import { MATERIAL_OPTIONS } from "./schema";
 import { DeleteArticleButton } from "./delete-button";
 
 type SearchParams = {
   q?: string;
   material?: string;
-  route_type?: string;
-};
-
-const ROUTE_LABELS: Record<string, string> = {
-  simple: "Простой",
-  medium: "Средний",
-  complex: "Сложный",
 };
 
 export default async function ArticlesPage({
@@ -45,7 +37,7 @@ export default async function ArticlesPage({
   const supabase = createClient();
   let query = supabase
     .from("articles")
-    .select("id, code, name, material, box_qty, size_min, size_max, wholesale_price, route_type, is_active")
+    .select("id, code, name, material, box_qty, size_min, size_max, wholesale_price, is_active")
     .order("code");
 
   if (searchParams.q) {
@@ -54,9 +46,6 @@ export default async function ArticlesPage({
   }
   if (searchParams.material && searchParams.material !== "all") {
     query = query.eq("material", searchParams.material);
-  }
-  if (searchParams.route_type && searchParams.route_type !== "all") {
-    query = query.eq("route_type", searchParams.route_type);
   }
 
   const { data, error } = await query;
@@ -78,7 +67,7 @@ export default async function ArticlesPage({
       />
 
       <Card className="p-4">
-        <form className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+        <form className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Input
             name="q"
             placeholder="Поиск по коду или названию"
@@ -98,23 +87,7 @@ export default async function ArticlesPage({
               ))}
             </SelectContent>
           </Select>
-          <Select
-            name="route_type"
-            defaultValue={searchParams.route_type ?? "all"}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Маршрут" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Все маршруты</SelectItem>
-              {ROUTE_TYPE_OPTIONS.map((r) => (
-                <SelectItem key={r.value} value={r.value}>
-                  {ROUTE_LABELS[r.value]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="sm:col-span-4 flex justify-end gap-2">
+          <div className="sm:col-span-3 flex justify-end gap-2">
             <Button variant="ghost" asChild>
               <Link href="/catalog/articles">Сбросить</Link>
             </Button>
@@ -139,15 +112,13 @@ export default async function ArticlesPage({
                 <TableHead className="w-28">Материал</TableHead>
                 <TableHead className="w-24">Размеры</TableHead>
                 <TableHead className="w-20 text-right">В кор.</TableHead>
-                <TableHead className="w-28 text-right">Цена, ₽</TableHead>
-                <TableHead className="w-28">Маршрут</TableHead>
                 <TableHead className="w-24 text-right"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {articles.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
                     Ничего не найдено
                   </TableCell>
                 </TableRow>
@@ -162,12 +133,6 @@ export default async function ArticlesPage({
                     </TableCell>
                     <TableCell className="text-right font-mono-tabular">
                       {a.box_qty}
-                    </TableCell>
-                    <TableCell className="text-right font-mono-tabular">
-                      {a.wholesale_price ? Number(a.wholesale_price).toFixed(0) : "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{ROUTE_LABELS[a.route_type]}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">

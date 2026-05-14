@@ -34,7 +34,7 @@
     --brand-pale: #E8EFF8;
     --brand-mist: #F4F7FC;
 
-    --ws-raw: #8B5CF6;
+    --ws-ang: #8B5CF6;
     --ws-lit: #EF4444;
     --ws-pack: #214A8C;
     --ws-cut: #06B6D4;
@@ -43,6 +43,8 @@
     --ws-assy: #14B8A6;
     --ws-mark: #6366F1;
     --ws-ship: #10B981;
+    --ws-adm: #64748B;
+    --ws-lst: #84CC16;
   }
 
   * {

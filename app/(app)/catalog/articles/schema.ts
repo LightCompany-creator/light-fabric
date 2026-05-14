@@ -14,7 +14,6 @@ export const ArticleSchema = z.object({
   size_max: optionalNumber,
   wholesale_price: optionalNumber,
   weight_per_pair: optionalNumber,
-  route_type: z.enum(["simple", "medium", "complex"]),
   is_active: z.coerce.boolean().default(true),
 });
 
@@ -28,9 +27,3 @@ export const MATERIAL_OPTIONS = [
   "фурнитура",
   "прочее",
 ] as const;
-
-export const ROUTE_TYPE_OPTIONS: { value: ArticleInput["route_type"]; label: string }[] = [
-  { value: "simple", label: "Простой (Литьё → Упаковка → Маркировка)" },
-  { value: "medium", label: "Средний (+ Клей → Обшив)" },
-  { value: "complex", label: "Сложный (+ Крой → Швейка)" },
-];

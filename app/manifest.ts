@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "LightFlow — MES Light Company",
-    short_name: "LightFlow",
+    name: "LightFabric — MES Light Company",
+    short_name: "LightFabric",
     description: "Оперативный цеховой учёт",
     start_url: "/dashboard",
     display: "standalone",

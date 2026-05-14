@@ -37,7 +37,6 @@ export default async function EditArticlePage({
           size_max: article.size_max,
           wholesale_price: article.wholesale_price,
           weight_per_pair: article.weight_per_pair,
-          route_type: article.route_type,
           is_active: article.is_active,
         }}
       />

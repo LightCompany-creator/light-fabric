@@ -40,19 +40,35 @@ export async function openShiftAction(
     revalidatePath("/shifts");
     redirect(`/shifts/${id}`);
   } catch (e) {
-    return { error: e instanceof Error ? e.message : "Не удалось открыть смену" };
+    // Supabase возвращает PostgrestError (обычный объект, не Error).
+    // Достаём message максимально мягко и сразу логируем в серверную консоль.
+    if (e && typeof e === "object" && "digest" in e) throw e; // redirect re-throw
+    const err = e as { message?: string; details?: string; hint?: string; code?: string } | Error;
+    const msg =
+      (err as { message?: string }).message ||
+      (err as { details?: string }).details ||
+      "Не удалось открыть смену";
+    console.error("[openShiftAction] failed:", err);
+    return { error: msg };
   }
 }
 
 export async function addOutputAction(shiftId: string, formData: FormData) {
   const supabase = createClient();
+  const castFormsRaw = formData.get("cast_forms");
+  const castForms =
+    castFormsRaw && castFormsRaw !== "none" ? Number(castFormsRaw) : null;
+  const machineRaw = formData.get("machine");
+  const machine =
+    machineRaw && machineRaw !== "none" ? String(machineRaw) : null;
   await addOutput(supabase, {
     shiftId,
     articleId: String(formData.get("article_id")),
     quantity: Number(formData.get("quantity")),
     weight: formData.get("weight") ? Number(formData.get("weight")) : null,
     defectQty: Number(formData.get("defect_qty") || 0),
-    machine: (formData.get("machine") as string) || null,
+    machine,
+    castForms,
     downtimeMin: Number(formData.get("downtime_min") || 0),
   });
   revalidatePath(`/shifts/${shiftId}`);

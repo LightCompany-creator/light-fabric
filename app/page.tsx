@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Factory, Route, ShieldCheck } from "lucide-react";
+import { ArrowRight, Beaker, Factory, ShieldCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -10,9 +10,9 @@ const highlights = [
     value: "учёт выработки",
   },
   {
-    icon: Route,
-    label: "Партии",
-    value: "движение по цехам",
+    icon: Beaker,
+    label: "Материалы",
+    value: "расход и остатки",
   },
   {
     icon: ShieldCheck,
@@ -47,22 +47,22 @@ export default function HomePage() {
               MES для цехового учёта
             </p>
             <h1 className="text-5xl font-bold text-brand-dark sm:text-6xl">
-              LightFlow
+              LightFabric
             </h1>
             <p className="mt-5 max-w-xl text-lg leading-8 text-muted-foreground">
               Система оперативного учёта для производства Light Company:
-              сменная выработка, партии, расход сырья и сдельная зарплата без
+              сменная выработка, расход сырья и сдельная зарплата без
               бумажных тетрадей.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg">
-                <Link href="/login">
-                  Войти в систему
+                <Link href="/demo">
+                  Демо-доступ
                   <ArrowRight aria-hidden="true" />
                 </Link>
               </Button>
               <Button asChild size="lg" variant="secondary">
-                <Link href="/dashboard">Открыть дашборд</Link>
+                <Link href="/login">Войти в систему</Link>
               </Button>
             </div>
           </div>
@@ -90,7 +90,7 @@ export default function HomePage() {
 
             <div className="mt-6 rounded-md border p-4">
               <p className="text-sm font-semibold text-foreground">
-                Маршрут партии
+                Производственный поток
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {workshops.map((workshop, index) => (

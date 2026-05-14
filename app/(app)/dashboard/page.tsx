@@ -71,7 +71,7 @@ function TechnologistDashboard() {
       <NavCard href="/catalog/articles" title="Артикулы" desc="Каталог продукции" />
       <NavCard href="/catalog/rates" title="Расценки" desc="Сдельная зарплата" />
       <NavCard href="/catalog/norms" title="Нормы расхода" desc="Материалы на пару" />
-      <NavCard href="/catalog/routes" title="Маршруты" desc="Последовательность цехов" />
+      <NavCard href="/catalog/employees" title="Работники" desc="Кто в какой бригаде" />
     </div>
   );
 }

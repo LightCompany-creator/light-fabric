@@ -53,7 +53,6 @@ articles: {
           size_max: number | null;
           wholesale_price: number | null;
           weight_per_pair: number | null;
-          route_type: Database["public"]["Enums"]["route_type"];
           is_active: boolean;
           created_at: string;
           updated_at: string;
@@ -68,7 +67,6 @@ articles: {
           size_max?: number | null;
           wholesale_price?: number | null;
           weight_per_pair?: number | null;
-          route_type?: Database["public"]["Enums"]["route_type"];
           is_active?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -83,7 +81,6 @@ articles: {
           size_max?: number | null;
           wholesale_price?: number | null;
           weight_per_pair?: number | null;
-          route_type?: Database["public"]["Enums"]["route_type"];
           is_active?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -228,33 +225,6 @@ norms: {
         };
         Relationships: [];
       };
-routes: {
-        Row: {
-          id: string;
-          article_id: string;
-          sequence: Json;
-          is_active: boolean;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          article_id: string;
-          sequence: Json;
-          is_active?: boolean;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          article_id?: string;
-          sequence?: Json;
-          is_active?: boolean;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
 shifts: {
         Row: {
           id: string;
@@ -294,54 +264,6 @@ shifts: {
         };
         Relationships: [];
       };
-batches: {
-        Row: {
-          id: string;
-          batch_number: string;
-          article_id: string;
-          quantity: number;
-          weight: number | null;
-          created_in_workshop: string;
-          current_workshop: string | null;
-          status: Database["public"]["Enums"]["batch_status"];
-          defect_total: number;
-          notes: string | null;
-          created_at: string;
-          completed_at: string | null;
-          shift_id: string | null;
-        };
-        Insert: {
-          id?: string;
-          batch_number: string;
-          article_id: string;
-          quantity: number;
-          weight?: number | null;
-          created_in_workshop: string;
-          current_workshop?: string | null;
-          status?: Database["public"]["Enums"]["batch_status"];
-          defect_total?: number;
-          notes?: string | null;
-          created_at?: string;
-          completed_at?: string | null;
-          shift_id?: string | null;
-        };
-        Update: {
-          id?: string;
-          batch_number?: string;
-          article_id?: string;
-          quantity?: number;
-          weight?: number | null;
-          created_in_workshop?: string;
-          current_workshop?: string | null;
-          status?: Database["public"]["Enums"]["batch_status"];
-          defect_total?: number;
-          notes?: string | null;
-          created_at?: string;
-          completed_at?: string | null;
-          shift_id?: string | null;
-        };
-        Relationships: [];
-      };
 shift_outputs: {
         Row: {
           id: string;
@@ -351,8 +273,8 @@ shift_outputs: {
           weight: number | null;
           defect_qty: number;
           machine: string | null;
+          cast_forms: number | null;
           downtime_min: number;
-          batch_id: string | null;
           notes: string | null;
           created_at: string;
         };
@@ -364,8 +286,8 @@ shift_outputs: {
           weight?: number | null;
           defect_qty?: number;
           machine?: string | null;
+          cast_forms?: number | null;
           downtime_min?: number;
-          batch_id?: string | null;
           notes?: string | null;
           created_at?: string;
         };
@@ -377,8 +299,8 @@ shift_outputs: {
           weight?: number | null;
           defect_qty?: number;
           machine?: string | null;
+          cast_forms?: number | null;
           downtime_min?: number;
-          batch_id?: string | null;
           notes?: string | null;
           created_at?: string;
         };
@@ -412,48 +334,6 @@ shift_workers: {
           operations?: Json | null;
           qty_done?: number;
           calculated_pay?: number;
-          notes?: string | null;
-          created_at?: string;
-        };
-        Relationships: [];
-      };
-batch_movements: {
-        Row: {
-          id: string;
-          batch_id: string;
-          from_workshop: string | null;
-          to_workshop: string;
-          moved_at: string;
-          moved_by: string | null;
-          qty_in: number | null;
-          qty_out: number | null;
-          defect_at_step: number;
-          notes: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          batch_id: string;
-          from_workshop?: string | null;
-          to_workshop: string;
-          moved_at?: string;
-          moved_by?: string | null;
-          qty_in?: number | null;
-          qty_out?: number | null;
-          defect_at_step?: number;
-          notes?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          batch_id?: string;
-          from_workshop?: string | null;
-          to_workshop?: string;
-          moved_at?: string;
-          moved_by?: string | null;
-          qty_in?: number | null;
-          qty_out?: number | null;
-          defect_at_step?: number;
           notes?: string | null;
           created_at?: string;
         };
@@ -559,28 +439,14 @@ sync_log: {
       };
     };
     Views: Record<string, never>;
-    Functions: {
-      generate_batch_number: {
-        Args: { workshop_code: string; batch_date: string };
-        Returns: string;
-      };
-    };
+    Functions: Record<string, never>;
     Enums: {
       material_type: "ЭВА" | "ПВХ" | "силикон" | "текстиль" | "фурнитура" | "прочее";
       material_unit: "кг" | "шт" | "м" | "м²" | "л";
       user_role: "foreman" | "technologist" | "director" | "accountant" | "admin";
       shift_type: "день" | "ночь";
       shift_status: "open" | "closed";
-      batch_status:
-        | "created"
-        | "in_transit"
-        | "received"
-        | "in_work"
-        | "completed"
-        | "shipped"
-        | "rejected";
       rate_unit_type: "пара" | "деталь" | "операция" | "единица" | "кг";
-      route_type: "simple" | "medium" | "complex";
     };
   };
 };

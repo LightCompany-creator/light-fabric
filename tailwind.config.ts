@@ -59,7 +59,7 @@ const config: Config = {
           mist: "var(--brand-mist)",
         },
         workshop: {
-          raw: "var(--ws-raw)",
+          ang: "var(--ws-ang)",
           lit: "var(--ws-lit)",
           pack: "var(--ws-pack)",
           cut: "var(--ws-cut)",
@@ -68,6 +68,8 @@ const config: Config = {
           assy: "var(--ws-assy)",
           mark: "var(--ws-mark)",
           ship: "var(--ws-ship)",
+          adm: "var(--ws-adm)",
+          lst: "var(--ws-lst)",
         },
       },
       borderRadius: {

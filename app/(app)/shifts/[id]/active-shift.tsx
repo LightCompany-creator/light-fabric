@@ -166,17 +166,48 @@ export function AddWorkerOperationForm({
   employees: Employee[];
 }) {
   const [pending, start] = useTransition();
+  const [queueHint, setQueueHint] = useState<string | null>(null);
   const action = addWorkerOperationAction.bind(null, shiftId);
+
+  const submit = (fd: FormData) => {
+    const isOffline =
+      typeof navigator !== "undefined" && navigator.onLine === false;
+    const queueIt = () => {
+      const payload: Record<string, string> = {};
+      fd.forEach((v, k) => {
+        payload[k] = String(v);
+      });
+      queueAdd("addWorker", payload, { shiftId });
+      const f = document.getElementById(`worker-form-${shiftId}`);
+      if (f instanceof HTMLFormElement) f.reset();
+    };
+
+    if (isOffline) {
+      queueIt();
+      setQueueHint("Сети нет — операция отложена в очередь.");
+      return;
+    }
+
+    start(async () => {
+      try {
+        await action(fd);
+        setQueueHint(null);
+        const f = document.getElementById(`worker-form-${shiftId}`);
+        if (f instanceof HTMLFormElement) f.reset();
+      } catch (e) {
+        if (isNetworkError(e)) {
+          queueIt();
+          setQueueHint("Связь оборвалась — операция отложена в очередь.");
+        } else {
+          throw e;
+        }
+      }
+    });
+  };
 
   return (
     <form
-      action={(fd: FormData) =>
-        start(async () => {
-          await action(fd);
-          const f = document.getElementById(`worker-form-${shiftId}`);
-          if (f instanceof HTMLFormElement) f.reset();
-        })
-      }
+      action={submit}
       id={`worker-form-${shiftId}`}
       className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-12"
     >
@@ -225,6 +256,11 @@ export function AddWorkerOperationForm({
           <span className="ml-1 lg:hidden">Добавить</span>
         </Button>
       </div>
+      {queueHint ? (
+        <p className="col-span-2 md:col-span-4 lg:col-span-12 rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-sm text-accent-foreground">
+          {queueHint}
+        </p>
+      ) : null}
     </form>
   );
 }

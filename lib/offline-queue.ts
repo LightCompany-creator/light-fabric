@@ -12,7 +12,7 @@
 
 const KEY = "lf-offline-queue";
 
-export type MutationType = "addOutput";
+export type MutationType = "addOutput" | "addWorker";
 
 export type QueuedMutation = {
   id: string;

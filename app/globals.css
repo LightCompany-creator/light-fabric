@@ -54,6 +54,17 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv11", "ss01";
+    /* Отключаем pull-to-refresh на Android Chrome и rubber-band на iOS —
+       чтобы вертикальный свайп не перебивал заполнение длинных форм. */
+    overscroll-behavior-y: contain;
+  }
+
+  /* Запретить выделение текста на тапающихся элементах — на Android долгий
+     тап случайно подсвечивает интерфейс. */
+  button,
+  [role="button"],
+  a {
+    -webkit-tap-highlight-color: transparent;
   }
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import {
   addWorkerOperationAction,
 } from "../actions";
 import { CAST_FORMS_OPTIONS, MACHINE_OPTIONS } from "@/lib/constants";
+import { queueAdd, isNetworkError } from "@/lib/offline-queue";
 
 type Article = { id: string; code: string; name: string };
 type Employee = { id: string; tab_number: string; full_name: string };
@@ -29,17 +30,51 @@ export function AddOutputForm({
   articles: Article[];
 }) {
   const [pending, start] = useTransition();
+  const [queueHint, setQueueHint] = useState<string | null>(null);
   const action = addOutputAction.bind(null, shiftId);
+
+  const submit = (fd: FormData) => {
+    // Если оффлайн или была сетевая ошибка — кладём в очередь сразу.
+    const isOffline =
+      typeof navigator !== "undefined" && navigator.onLine === false;
+    if (isOffline) {
+      const payload: Record<string, string> = {};
+      fd.forEach((v, k) => {
+        payload[k] = String(v);
+      });
+      queueAdd("addOutput", payload, { shiftId });
+      setQueueHint("Сети нет — запись отложена. Отправлю как только связь появится.");
+      const f = document.getElementById(`output-form-${shiftId}`);
+      if (f instanceof HTMLFormElement) f.reset();
+      return;
+    }
+
+    start(async () => {
+      try {
+        await action(fd);
+        setQueueHint(null);
+        const f = document.getElementById(`output-form-${shiftId}`);
+        if (f instanceof HTMLFormElement) f.reset();
+      } catch (e) {
+        if (isNetworkError(e)) {
+          const payload: Record<string, string> = {};
+          fd.forEach((v, k) => {
+            payload[k] = String(v);
+          });
+          queueAdd("addOutput", payload, { shiftId });
+          setQueueHint("Связь оборвалась — запись отложена в очередь.");
+          const f = document.getElementById(`output-form-${shiftId}`);
+          if (f instanceof HTMLFormElement) f.reset();
+        } else {
+          throw e;
+        }
+      }
+    });
+  };
 
   return (
     <form
-      action={(fd: FormData) =>
-        start(async () => {
-          await action(fd);
-          const f = document.getElementById(`output-form-${shiftId}`);
-          if (f instanceof HTMLFormElement) f.reset();
-        })
-      }
+      action={submit}
       id={`output-form-${shiftId}`}
       className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-12"
     >
@@ -112,6 +147,11 @@ export function AddOutputForm({
           Добавить
         </Button>
       </div>
+      {queueHint ? (
+        <p className="col-span-2 md:col-span-4 lg:col-span-12 rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-sm text-accent-foreground">
+          {queueHint}
+        </p>
+      ) : null}
     </form>
   );
 }

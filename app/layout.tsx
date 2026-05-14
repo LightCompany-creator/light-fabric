@@ -4,6 +4,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { PwaRegister } from "@/components/shared/pwa-register";
 import { OfflineIndicator } from "@/components/shared/offline-indicator";
+import { QueueSyncer } from "@/components/shared/queue-syncer";
 
 const inter = Inter({
   subsets: ["latin", "cyrillic"],
@@ -98,6 +99,7 @@ export default function RootLayout({
     <html lang="ru" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="font-sans">
         <OfflineIndicator />
+        <QueueSyncer />
         {children}
         <PwaRegister />
       </body>

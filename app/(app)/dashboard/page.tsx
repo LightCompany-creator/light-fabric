@@ -15,7 +15,11 @@ import { USER_ROLE_LABELS } from "@/lib/constants";
 import { DirectorDashboard } from "./director-dashboard";
 import { ForemanDashboard } from "./foreman-dashboard";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: { from?: string; to?: string; period?: string };
+}) {
   const user = await requireUser();
   const firstName =
     user.employee?.full_name?.split(" ").slice(1).join(" ") ||
@@ -28,7 +32,7 @@ export default async function DashboardPage() {
 
   let content: React.ReactNode;
   if (user.role === "director" || user.role === "admin") {
-    content = <DirectorDashboard />;
+    content = <DirectorDashboard searchParams={searchParams} />;
   } else if (user.role === "foreman") {
     content = <ForemanDashboard user={user} />;
   } else if (user.role === "technologist") {

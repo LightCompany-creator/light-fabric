@@ -30,6 +30,11 @@ export type WorkerPay = {
 
 type RateRow = Tables<"rates">;
 
+function normalizeOperation(value: string | null | undefined): string | null {
+  const normalized = value?.trim().toLowerCase().replace(/\u0451/g, "\u0435");
+  return normalized ? normalized : null;
+}
+
 /**
  * Подбирает наиболее специфичную действующую расценку под операцию работника.
  * Порядок специфичности (по убыванию):
@@ -44,13 +49,20 @@ function pickRate(
   operation: string | null,
 ): RateRow | null {
   const candidates: { rate: RateRow; score: number }[] = [];
+  const normalizedOperation = normalizeOperation(operation);
   for (const r of rates) {
+    const normalizedRateOperation = normalizeOperation(r.operation);
     let score = 0;
     if (r.article_id && r.article_id === articleId) score += 10;
     else if (!r.article_id) score += 1;
     else continue;
 
-    if (operation && r.operation && r.operation === operation) score += 5;
+    if (
+      normalizedOperation &&
+      normalizedRateOperation &&
+      normalizedRateOperation === normalizedOperation
+    )
+      score += 5;
     else if (!r.operation) score += 0;
     else continue;
 
@@ -143,11 +155,17 @@ export async function calculateShiftPay(
       });
     }
 
-    // Сохраняем сумму на работника
-    await client
+    // Сохраняем сумму на работника и явно ловим случаи, когда RLS не дала обновить строку.
+    const { data: updatedWorker, error: updateErr } = await client
       .from("shift_workers")
       .update({ calculated_pay: total } as never)
-      .eq("id", w.id);
+      .eq("id", w.id)
+      .select("id")
+      .maybeSingle();
+    if (updateErr) throw updateErr;
+    if (!updatedWorker) {
+      throw new Error("Не удалось сохранить расчёт ЗП для работника смены");
+    }
 
     results.push({
       workerId: w.id,

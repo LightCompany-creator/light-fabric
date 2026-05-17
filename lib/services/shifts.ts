@@ -72,6 +72,7 @@ export async function addOutput(
     .select("id")
     .single();
   if (error) throw error;
+  await calculateShiftPay(client, args.shiftId);
   return (data as { id: string }).id;
 }
 
@@ -99,6 +100,7 @@ export async function addWorker(
     .select("id")
     .single();
   if (error) throw error;
+  await calculateShiftPay(client, args.shiftId);
   return (data as { id: string }).id;
 }
 

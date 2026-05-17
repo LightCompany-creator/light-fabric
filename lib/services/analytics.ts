@@ -142,7 +142,7 @@ export async function getDirectorOverview(
     byWs.set(wsId, (byWs.get(wsId) ?? 0) + o.quantity);
   }
   const workshopLoad = workshops.map((w) => ({
-    x: w.code,
+    x: w.name,
     y: byWs.get(w.id) ?? 0,
     color: w.color,
   }));

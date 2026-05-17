@@ -21,9 +21,9 @@ export function WorkshopLoadChart({
   yLabel?: string;
 }) {
   return (
-    <div className="h-64 w-full">
+    <div className="h-80 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+        <BarChart data={data} margin={{ top: 8, right: 16, bottom: 72, left: 0 }}>
           <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
           <XAxis
             dataKey="x"
@@ -31,6 +31,10 @@ export function WorkshopLoadChart({
             fontSize={11}
             tickLine={false}
             axisLine={false}
+            interval={0}
+            angle={-35}
+            textAnchor="end"
+            height={72}
           />
           <YAxis
             stroke="hsl(var(--muted-foreground))"

@@ -40,6 +40,11 @@ type WorkerRow = Tables<"shift_workers"> & {
   employee: Pick<Tables<"employees">, "tab_number" | "full_name"> | null;
 };
 
+type OperationOption = {
+  value: string;
+  label: string;
+};
+
 export default async function ActiveShiftPage({
   params,
 }: {
@@ -79,6 +84,23 @@ export default async function ActiveShiftPage({
 
   const shift = shiftRaw as ShiftFull | null;
   if (!shift) notFound();
+
+  const { data: ratesRaw } = await supabase
+    .from("rates")
+    .select("operation")
+    .eq("workshop_id", shift.workshop_id)
+    .lte("valid_from", shift.shift_date)
+    .or(`valid_to.is.null,valid_to.gte.${shift.shift_date}`)
+    .not("operation", "is", null)
+    .order("operation");
+  const rateOperations = (ratesRaw ?? []) as Pick<Tables<"rates">, "operation">[];
+  const operationOptions: OperationOption[] = Array.from(
+    new Set(
+      rateOperations
+        .map((r) => r.operation?.trim())
+        .filter((op): op is string => Boolean(op)),
+    ),
+  ).map((op) => ({ value: op, label: op }));
 
   const outputs = (outsRaw ?? []) as OutputRow[];
   const workers = (workersRaw ?? []) as WorkerRow[];
@@ -185,6 +207,7 @@ export default async function ActiveShiftPage({
               shiftId={shift.id}
               articles={articles}
               employees={employees}
+              operationOptions={operationOptions}
             />
           ) : null}
           {workers.length === 0 ? (

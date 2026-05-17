@@ -121,7 +121,7 @@ export async function addWorkerOperationAction(shiftId: string, formData: FormDa
     ...prevOps,
     {
       article_id: articleId && articleId !== "none" ? articleId : null,
-      operation: operation && operation.trim().length > 0 ? operation.trim() : null,
+      operation: operation && operation !== "none" && operation.trim().length > 0 ? operation.trim() : null,
       qty,
     },
   ];

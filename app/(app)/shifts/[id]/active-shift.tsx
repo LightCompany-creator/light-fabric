@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,7 @@ type Article = {
   weight_per_pair?: number | null;
 };
 type Employee = { id: string; tab_number: string; full_name: string };
+type OperationOption = { value: string; label: string };
 
 export function AddOutputForm({
   shiftId,
@@ -34,6 +36,7 @@ export function AddOutputForm({
   shiftId: string;
   articles: Article[];
 }) {
+  const router = useRouter();
   const [pending, start] = useTransition();
   const [queueHint, setQueueHint] = useState<string | null>(null);
   const [selectedArticleId, setSelectedArticleId] = useState<string>("");
@@ -77,6 +80,7 @@ export function AddOutputForm({
         await action(fd);
         setQueueHint(null);
         resetForm();
+        router.refresh();
       } catch (e) {
         if (isNetworkError(e)) {
           const payload: Record<string, string> = {};
@@ -215,11 +219,14 @@ export function AddWorkerOperationForm({
   shiftId,
   articles,
   employees,
+  operationOptions,
 }: {
   shiftId: string;
   articles: Article[];
   employees: Employee[];
+  operationOptions: OperationOption[];
 }) {
+  const router = useRouter();
   const [pending, start] = useTransition();
   const [queueHint, setQueueHint] = useState<string | null>(null);
   const action = addWorkerOperationAction.bind(null, shiftId);
@@ -249,6 +256,7 @@ export function AddWorkerOperationForm({
         setQueueHint(null);
         const f = document.getElementById(`worker-form-${shiftId}`);
         if (f instanceof HTMLFormElement) f.reset();
+        router.refresh();
       } catch (e) {
         if (isNetworkError(e)) {
           queueIt();
@@ -299,7 +307,22 @@ export function AddWorkerOperationForm({
       </div>
       <div className="col-span-2 md:col-span-2 lg:col-span-3">
         <Label htmlFor="operation">Операция</Label>
-        <Input id="operation" name="operation" placeholder="литьё, пристрочка..." />
+        <Select name="operation" defaultValue={operationOptions[0]?.value ?? "none"}>
+          <SelectTrigger id="operation">
+            <SelectValue placeholder="Выберите операцию" />
+          </SelectTrigger>
+          <SelectContent>
+            {operationOptions.length === 0 ? (
+              <SelectItem value="none">Общая работа</SelectItem>
+            ) : (
+              operationOptions.map((op) => (
+                <SelectItem key={op.value} value={op.value}>
+                  {op.label}
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
       </div>
       <div className="lg:col-span-1">
         <Label htmlFor="qty">Кол-во</Label>
@@ -353,6 +376,7 @@ export function DeleteIconForm({
 }
 
 export function CloseShiftButton({ shiftId }: { shiftId: string }) {
+  const router = useRouter();
   const [pending, start] = useTransition();
   return (
     <form
@@ -360,6 +384,7 @@ export function CloseShiftButton({ shiftId }: { shiftId: string }) {
         start(async () => {
           const { closeShiftAction } = await import("../actions");
           await closeShiftAction(fd);
+          router.refresh();
         });
       }}
       onSubmit={(e) => {

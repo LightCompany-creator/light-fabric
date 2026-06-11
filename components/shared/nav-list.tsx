@@ -73,6 +73,7 @@ const NAV: Record<Enums<"user_role">, NavItem[]> = {
   ],
   accountant: [
     { href: "/dashboard", label: "Главная", icon: Home },
+    { href: "/stocks", label: "Остатки", icon: Boxes },
     { href: "/reports/payroll", label: "Ведомости ЗП", icon: Wallet },
     { href: "/reports/production", label: "Выпуск", icon: TrendingUp },
     { href: "/reports/materials", label: "Расход", icon: Beaker },

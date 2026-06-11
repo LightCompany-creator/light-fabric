@@ -13,6 +13,10 @@ const DEMO_ACCOUNTS: Record<string, string> = {
   admin: "admin@lightflow.test",
 };
 
+// Карточки начальников цехов: ключ foreman-<КОД> → foreman-<код>@lightflow.test
+// Аккаунты создаёт scripts/seed-workshop-foremen.mjs
+const WORKSHOP_FOREMAN_KEY = /^foreman-([A-Z]{2,5})$/;
+
 export type DemoLoginState = { error: string | null };
 
 export async function demoLoginAction(
@@ -20,7 +24,10 @@ export async function demoLoginAction(
   formData: FormData,
 ): Promise<DemoLoginState> {
   const roleKey = String(formData.get("role") ?? "");
-  const email = DEMO_ACCOUNTS[roleKey];
+  const wsMatch = roleKey.match(WORKSHOP_FOREMAN_KEY);
+  const email = wsMatch
+    ? `foreman-${wsMatch[1].toLowerCase()}@lightflow.test`
+    : DEMO_ACCOUNTS[roleKey];
   if (!email) return { error: "Неизвестная демо-роль" };
 
   const supabase = createClient();

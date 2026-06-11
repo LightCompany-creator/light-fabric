@@ -91,13 +91,91 @@ const ROLES: Role[] = [
   },
 ];
 
+// Начальники цехов — для теста перемещений между цехами.
+// В боевой версии у каждого будет свой личный логин и пароль.
+const WORKSHOPS: { code: string; name: string; chief: string }[] = [
+  { code: "LIT", name: "Литейка", chief: "Начальник Литейки" },
+  { code: "CUT", name: "Рубка/Крой", chief: "Начальник Кроя" },
+  { code: "SEW", name: "Швейка", chief: "Начальник Швейки" },
+  { code: "ASSY", name: "Обшив", chief: "Начальник Обшива" },
+  { code: "GLU", name: "Клеевой", chief: "Начальник Клеевого" },
+  { code: "MARK", name: "Маркировка и упаковка", chief: "Начальник Маркировки" },
+  { code: "SHIP", name: "Склад Кисловодск", chief: "Начальник Склада" },
+  { code: "ANG", name: "Химия и сырьё", chief: "Начальник Ангара" },
+  { code: "PACK", name: "Упаковка", chief: "Начальник Упаковки" },
+  { code: "LST", name: "Листы", chief: "Начальник Листов" },
+];
+
 export function DemoGrid() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {ROLES.map((r) => (
-        <DemoCard key={r.role} {...r} />
-      ))}
+    <div className="space-y-10">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {ROLES.map((r) => (
+          <DemoCard key={r.role} {...r} />
+        ))}
+      </div>
+
+      <div>
+        <h2 className="text-2xl font-bold text-brand-dark">
+          Начальники цехов — тест перемещений
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Войди за один цех, создай перемещение, затем войди за цех-получатель
+          и прими документ. В рабочей версии у каждого будет личный логин.
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {WORKSHOPS.map((w) => (
+            <WorkshopCard key={w.code} {...w} />
+          ))}
+        </div>
+      </div>
     </div>
+  );
+}
+
+function WorkshopCard({
+  code,
+  name,
+  chief,
+}: {
+  code: string;
+  name: string;
+  chief: string;
+}) {
+  const [state, formAction] = useFormState(demoLoginAction, INITIAL);
+
+  return (
+    <form
+      action={formAction}
+      className="flex h-full flex-col rounded-lg border bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+    >
+      <input type="hidden" name="role" value={`foreman-${code}`} />
+      <p className="font-mono text-xs uppercase tracking-widest text-brand">
+        {code}
+      </p>
+      <h3 className="mt-1 font-semibold text-foreground">{name}</h3>
+      <p className="mt-1 flex-1 text-xs text-muted-foreground">{chief}</p>
+      {state.error ? (
+        <p className="mt-2 text-xs text-destructive">{state.error}</p>
+      ) : null}
+      <WorkshopSubmit />
+    </form>
+  );
+}
+
+function WorkshopSubmit() {
+  const { pending } = useFormStatus();
+  return (
+    <Button
+      type="submit"
+      variant="secondary"
+      size="sm"
+      className="mt-3 w-full"
+      disabled={pending}
+    >
+      {pending ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
+      Войти
+    </Button>
   );
 }
 

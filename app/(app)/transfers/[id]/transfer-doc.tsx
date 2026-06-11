@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
@@ -77,6 +78,17 @@ export function TransferDoc({
 }) {
   const isOpen = doc.status === "open";
   const totalQty = lines.reduce((s, l) => s + l.qty, 0);
+
+  // Выбранный артикул в форме добавления — чтобы ограничить кол-во остатком
+  const [selectedArticleId, setSelectedArticleId] = useState("");
+  const selectedArticle = articles.find((a) => a.id === selectedArticleId);
+  // Уже добавленные в документ строки этого артикула «бронируют» остаток
+  const reservedQty = lines
+    .filter((l) => selectedArticle && l.articleCode === selectedArticle.code)
+    .reduce((s, l) => s + l.qty, 0);
+  const maxQty = selectedArticle
+    ? Math.max(0, selectedArticle.stockQty - reservedQty)
+    : undefined;
 
   const addLineWithId = addLineAction.bind(null, doc.id);
   const [addState, addAction] = useFormState(addLineWithId, INITIAL);
@@ -199,7 +211,11 @@ export function TransferDoc({
             >
               <div className="space-y-1.5">
                 <Label htmlFor="article_id">Артикул (остаток отправителя)</Label>
-                <Select name="article_id">
+                <Select
+                  name="article_id"
+                  value={selectedArticleId}
+                  onValueChange={setSelectedArticleId}
+                >
                   <SelectTrigger id="article_id">
                     <SelectValue placeholder="Выберите артикул" />
                   </SelectTrigger>
@@ -219,8 +235,22 @@ export function TransferDoc({
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="qty">Кол-во, пар</Label>
-                <Input id="qty" name="qty" type="number" min={1} inputMode="numeric" />
+                <Label htmlFor="qty">
+                  Кол-во, пар
+                  {maxQty !== undefined ? (
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      (макс. {maxQty})
+                    </span>
+                  ) : null}
+                </Label>
+                <Input
+                  id="qty"
+                  name="qty"
+                  type="number"
+                  min={1}
+                  max={maxQty}
+                  inputMode="numeric"
+                />
               </div>
               <AddLineButton />
               {addState.error ? (

@@ -437,8 +437,88 @@ sync_log: {
           performed_at?: string;
         };
       };
+transfers: {
+        Row: {
+          id: string;
+          doc_number: string;
+          transfer_date: string;
+          from_workshop_id: string;
+          to_workshop_id: string;
+          status: "open" | "accepted";
+          created_by: string | null;
+          accepted_by: string | null;
+          accepted_at: string | null;
+          reopened_by: string | null;
+          reopened_at: string | null;
+          comment: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          doc_number?: string;
+          transfer_date?: string;
+          from_workshop_id: string;
+          to_workshop_id: string;
+          status?: "open" | "accepted";
+          created_by?: string | null;
+          accepted_by?: string | null;
+          accepted_at?: string | null;
+          reopened_by?: string | null;
+          reopened_at?: string | null;
+          comment?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          doc_number?: string;
+          transfer_date?: string;
+          from_workshop_id?: string;
+          to_workshop_id?: string;
+          status?: "open" | "accepted";
+          created_by?: string | null;
+          accepted_by?: string | null;
+          accepted_at?: string | null;
+          reopened_by?: string | null;
+          reopened_at?: string | null;
+          comment?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+transfer_lines: {
+        Row: {
+          id: string;
+          transfer_id: string;
+          article_id: string;
+          qty: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          transfer_id: string;
+          article_id: string;
+          qty: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          transfer_id?: string;
+          article_id?: string;
+          qty?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
-    Views: Record<string, never>;
+    Views: {
+      workshop_stock: {
+        Row: {
+          workshop_id: string;
+          article_id: string;
+          qty: number;
+        };
+      };
+    };
     Functions: Record<string, never>;
     Enums: {
       material_type: "ЭВА" | "ПВХ" | "силикон" | "текстиль" | "фурнитура" | "прочее";

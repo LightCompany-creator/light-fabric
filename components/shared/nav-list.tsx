@@ -47,6 +47,8 @@ const NAV: Record<Enums<"user_role">, NavItem[]> = {
   foreman: [
     { href: "/dashboard", label: "Главная", icon: Home },
     { href: "/shifts", label: "Смены", icon: ClipboardList },
+    { href: "/transfers", label: "Перемещения", icon: ArrowLeftRight },
+    { href: "/stocks", label: "Остатки", icon: Boxes },
     WALL_POSTER,
   ],
   technologist: [
@@ -62,6 +64,8 @@ const NAV: Record<Enums<"user_role">, NavItem[]> = {
   director: [
     { href: "/dashboard", label: "Дашборд", icon: LayoutDashboard },
     { href: "/shifts", label: "Все смены", icon: ClipboardList },
+    { href: "/transfers", label: "Перемещения", icon: ArrowLeftRight },
+    { href: "/stocks", label: "Остатки", icon: Boxes },
     { href: "/reports/production", label: "Производство", icon: TrendingUp },
     { href: "/reports/payroll", label: "ФОТ", icon: Wallet },
     { href: "/reports/materials", label: "Расход материалов", icon: Beaker },
@@ -78,6 +82,8 @@ const NAV: Record<Enums<"user_role">, NavItem[]> = {
   admin: [
     { href: "/dashboard", label: "Дашборд", icon: LayoutDashboard },
     { href: "/shifts", label: "Все смены", icon: ClipboardList },
+    { href: "/transfers", label: "Перемещения", icon: ArrowLeftRight },
+    { href: "/stocks", label: "Остатки", icon: Boxes },
     { href: "/catalog/articles", label: "Артикулы", icon: Tag },
     { href: "/catalog/rates", label: "Расценки", icon: Coins },
     { href: "/catalog/norms", label: "Нормы", icon: Scale },

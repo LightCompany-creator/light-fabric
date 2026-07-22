@@ -11,6 +11,8 @@ import {
   Factory,
   Home,
   LayoutDashboard,
+  ListOrdered,
+  ListTodo,
   Presentation,
   Printer,
   Scale,
@@ -47,9 +49,16 @@ const NAV: Record<Enums<"user_role">, NavItem[]> = {
   foreman: [
     { href: "/dashboard", label: "Главная", icon: Home },
     { href: "/shifts", label: "Смены", icon: ClipboardList },
+    { href: "/orders/suborders", label: "Мои заказы", icon: ListTodo },
     { href: "/transfers", label: "Перемещения", icon: ArrowLeftRight },
     { href: "/stocks", label: "Остатки", icon: Boxes },
     WALL_POSTER,
+  ],
+  production_manager: [
+    { href: "/dashboard", label: "Главная", icon: Home },
+    { href: "/orders", label: "Заказы на производство", icon: ListOrdered },
+    { href: "/shifts", label: "Все смены", icon: ClipboardList },
+    { href: "/stocks", label: "Остатки", icon: Boxes },
   ],
   technologist: [
     { href: "/dashboard", label: "Главная", icon: Home },
@@ -64,6 +73,7 @@ const NAV: Record<Enums<"user_role">, NavItem[]> = {
   director: [
     { href: "/dashboard", label: "Дашборд", icon: LayoutDashboard },
     { href: "/shifts", label: "Все смены", icon: ClipboardList },
+    { href: "/orders", label: "Заказы на производство", icon: ListOrdered },
     { href: "/transfers", label: "Перемещения", icon: ArrowLeftRight },
     { href: "/stocks", label: "Остатки", icon: Boxes },
     { href: "/reports/production", label: "Производство", icon: TrendingUp },
@@ -83,6 +93,8 @@ const NAV: Record<Enums<"user_role">, NavItem[]> = {
   admin: [
     { href: "/dashboard", label: "Дашборд", icon: LayoutDashboard },
     { href: "/shifts", label: "Все смены", icon: ClipboardList },
+    { href: "/orders", label: "Заказы на производство", icon: ListOrdered },
+    { href: "/orders/suborders", label: "Подзаказы", icon: ListTodo },
     { href: "/transfers", label: "Перемещения", icon: ArrowLeftRight },
     { href: "/stocks", label: "Остатки", icon: Boxes },
     { href: "/catalog/articles", label: "Артикулы", icon: Tag },

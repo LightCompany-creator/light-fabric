@@ -25,7 +25,14 @@ export const EmployeeSchema = z.object({
   position: optionalText,
   role: z
     .union([
-      z.enum(["foreman", "technologist", "director", "accountant", "admin"]),
+      z.enum([
+        "foreman",
+        "technologist",
+        "director",
+        "accountant",
+        "admin",
+        "production_manager",
+      ]),
       z.literal("none"),
       z.literal(""),
     ])
@@ -40,6 +47,7 @@ export type EmployeeInput = z.infer<typeof EmployeeSchema>;
 export const ROLE_OPTIONS: { value: string; label: string }[] = [
   { value: "none", label: "Без логина (рабочий)" },
   { value: "foreman", label: "Начальник цеха" },
+  { value: "production_manager", label: "Начальник производства" },
   { value: "technologist", label: "Технолог" },
   { value: "director", label: "Директор" },
   { value: "accountant", label: "Бухгалтер" },

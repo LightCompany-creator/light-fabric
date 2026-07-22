@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/supabase/types";
 import { getCurrentUser } from "@/lib/auth";
+import { getActiveSuborders } from "@/lib/services/orders";
 import { PageHeader } from "@/components/shared/page-header";
 import { OpenShiftForm } from "./open-form";
 
@@ -14,6 +15,9 @@ export default async function NewShiftPage() {
     .order("seq_order");
   const workshops = (ws ?? []) as Pick<Tables<"workshops">, "id" | "code" | "name">[];
 
+  const ownWorkshopId = user?.employee?.workshop_id ?? null;
+  const suborders = ownWorkshopId ? await getActiveSuborders(supabase, ownWorkshopId) : [];
+
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -24,7 +28,8 @@ export default async function NewShiftPage() {
       />
       <OpenShiftForm
         workshops={workshops}
-        defaultWorkshopId={user?.employee?.workshop_id ?? null}
+        defaultWorkshopId={ownWorkshopId}
+        suborders={suborders}
         today={today}
       />
     </div>

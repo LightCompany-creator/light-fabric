@@ -233,6 +233,7 @@ shifts: {
           shift_date: string;
           shift_type: Database["public"]["Enums"]["shift_type"];
           status: Database["public"]["Enums"]["shift_status"];
+          suborder_id: string | null;
           opened_at: string;
           closed_at: string | null;
           notes: string | null;
@@ -245,6 +246,7 @@ shifts: {
           shift_date: string;
           shift_type?: Database["public"]["Enums"]["shift_type"];
           status?: Database["public"]["Enums"]["shift_status"];
+          suborder_id?: string | null;
           opened_at?: string;
           closed_at?: string | null;
           notes?: string | null;
@@ -257,6 +259,7 @@ shifts: {
           shift_date?: string;
           shift_type?: Database["public"]["Enums"]["shift_type"];
           status?: Database["public"]["Enums"]["shift_status"];
+          suborder_id?: string | null;
           opened_at?: string;
           closed_at?: string | null;
           notes?: string | null;
@@ -509,6 +512,159 @@ transfer_lines: {
         };
         Relationships: [];
       };
+production_orders: {
+        Row: {
+          id: string;
+          doc_number: string;
+          order_date: string;
+          due_date: string | null;
+          comment: string | null;
+          status: "draft" | "in_progress" | "closed";
+          created_by: string | null;
+          closed_by: string | null;
+          closed_at: string | null;
+          reopened_by: string | null;
+          reopened_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          doc_number?: string;
+          order_date?: string;
+          due_date?: string | null;
+          comment?: string | null;
+          status?: "draft" | "in_progress" | "closed";
+          created_by?: string | null;
+          closed_by?: string | null;
+          closed_at?: string | null;
+          reopened_by?: string | null;
+          reopened_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          doc_number?: string;
+          order_date?: string;
+          due_date?: string | null;
+          comment?: string | null;
+          status?: "draft" | "in_progress" | "closed";
+          created_by?: string | null;
+          closed_by?: string | null;
+          closed_at?: string | null;
+          reopened_by?: string | null;
+          reopened_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+production_order_lines: {
+        Row: {
+          id: string;
+          order_id: string;
+          article_id: string;
+          qty: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          article_id: string;
+          qty: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          article_id?: string;
+          qty?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+production_suborders: {
+        Row: {
+          id: string;
+          doc_number: string;
+          order_id: string;
+          workshop_id: string;
+          due_date: string | null;
+          status: "assigned" | "correction_requested" | "in_progress" | "closed";
+          correction_comment: string | null;
+          accepted_by: string | null;
+          accepted_at: string | null;
+          workshop_confirmed_by: string | null;
+          workshop_confirmed_at: string | null;
+          production_confirmed_by: string | null;
+          production_confirmed_at: string | null;
+          created_by: string | null;
+          reopened_by: string | null;
+          reopened_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          doc_number?: string;
+          order_id: string;
+          workshop_id: string;
+          due_date?: string | null;
+          status?: "assigned" | "correction_requested" | "in_progress" | "closed";
+          correction_comment?: string | null;
+          accepted_by?: string | null;
+          accepted_at?: string | null;
+          workshop_confirmed_by?: string | null;
+          workshop_confirmed_at?: string | null;
+          production_confirmed_by?: string | null;
+          production_confirmed_at?: string | null;
+          created_by?: string | null;
+          reopened_by?: string | null;
+          reopened_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          doc_number?: string;
+          order_id?: string;
+          workshop_id?: string;
+          due_date?: string | null;
+          status?: "assigned" | "correction_requested" | "in_progress" | "closed";
+          correction_comment?: string | null;
+          accepted_by?: string | null;
+          accepted_at?: string | null;
+          workshop_confirmed_by?: string | null;
+          workshop_confirmed_at?: string | null;
+          production_confirmed_by?: string | null;
+          production_confirmed_at?: string | null;
+          created_by?: string | null;
+          reopened_by?: string | null;
+          reopened_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+production_suborder_lines: {
+        Row: {
+          id: string;
+          suborder_id: string;
+          article_id: string;
+          qty: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          suborder_id: string;
+          article_id: string;
+          qty: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          suborder_id?: string;
+          article_id?: string;
+          qty?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       workshop_stock: {
@@ -518,12 +674,26 @@ transfer_lines: {
           qty: number;
         };
       };
+      suborder_progress: {
+        Row: {
+          suborder_id: string;
+          article_id: string;
+          planned_qty: number;
+          produced_qty: number;
+        };
+      };
     };
     Functions: Record<string, never>;
     Enums: {
       material_type: "ЭВА" | "ПВХ" | "силикон" | "текстиль" | "фурнитура" | "прочее";
       material_unit: "кг" | "шт" | "м" | "м²" | "л";
-      user_role: "foreman" | "technologist" | "director" | "accountant" | "admin";
+      user_role:
+        | "foreman"
+        | "technologist"
+        | "director"
+        | "accountant"
+        | "admin"
+        | "production_manager";
       shift_type: "день" | "ночь";
       shift_status: "open" | "closed";
       rate_unit_type: "пара" | "деталь" | "операция" | "единица" | "кг";

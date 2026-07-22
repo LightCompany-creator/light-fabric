@@ -18,14 +18,17 @@ import { openShiftAction, type FormState } from "../actions";
 const INITIAL: FormState = { error: null };
 
 type Workshop = { id: string; code: string; name: string };
+type Suborder = { id: string; doc_number: string; due_date: string | null };
 
 export function OpenShiftForm({
   workshops,
   defaultWorkshopId,
+  suborders,
   today,
 }: {
   workshops: Workshop[];
   defaultWorkshopId: string | null;
+  suborders: Suborder[];
   today: string;
 }) {
   const [state, action] = useFormState(openShiftAction, INITIAL);
@@ -67,6 +70,24 @@ export function OpenShiftForm({
               <SelectContent>
                 <SelectItem value="день">Дневная</SelectItem>
                 <SelectItem value="ночь">Ночная</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5 sm:col-span-3">
+            <Label htmlFor="suborder_id">Подзаказ (необязательно)</Label>
+            <Select name="suborder_id" defaultValue="none">
+              <SelectTrigger id="suborder_id">
+                <SelectValue placeholder="Без привязки к заказу" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Без привязки к заказу</SelectItem>
+                {suborders.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.doc_number}
+                    {s.due_date ? ` · срок ${s.due_date}` : ""}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

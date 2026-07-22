@@ -62,6 +62,14 @@ const USERS = [
     position: "Администратор системы",
     workshopCode: null,
   },
+  {
+    email: "production@lightflow.test",
+    role: "production_manager",
+    tab: "TST-0006",
+    fullName: "Тестовый Начальник производства",
+    position: "Начальник производства",
+    workshopCode: null,
+  },
 ];
 
 async function findAuthUserByEmail(email) {

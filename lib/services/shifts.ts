@@ -12,6 +12,7 @@ export async function openShift(
     foremanId: string;
     shiftDate: string;
     shiftType: "день" | "ночь";
+    suborderId?: string | null;
   },
 ): Promise<{ id: string }> {
   // Проверяем что нет другой открытой смены того же типа в том же цехе на эту дату
@@ -35,6 +36,7 @@ export async function openShift(
       foreman_id: args.foremanId,
       shift_date: args.shiftDate,
       shift_type: args.shiftType,
+      suborder_id: args.suborderId ?? null,
       status: "open",
     } as never)
     .select("id")

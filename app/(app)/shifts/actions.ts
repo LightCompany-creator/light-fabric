@@ -26,6 +26,8 @@ export async function openShiftAction(
   const workshopId = String(formData.get("workshop_id") || user.employee.workshop_id || "");
   const shiftType = String(formData.get("shift_type") || "день") as "день" | "ночь";
   const shiftDate = String(formData.get("shift_date") || new Date().toISOString().slice(0, 10));
+  const suborderIdRaw = formData.get("suborder_id");
+  const suborderId = suborderIdRaw && suborderIdRaw !== "none" ? String(suborderIdRaw) : null;
 
   if (!workshopId) return { error: "Выберите цех" };
 
@@ -36,6 +38,7 @@ export async function openShiftAction(
       foremanId: user.employee.id,
       shiftDate,
       shiftType,
+      suborderId,
     });
     revalidatePath("/shifts");
     redirect(`/shifts/${id}`);

@@ -32,7 +32,10 @@ type OrderRow = Tables<"production_orders"> & {
 export default async function OrdersListPage() {
   const supabase = createClient();
   const user = await getCurrentUser();
-  const canCreate = user?.role === "production_manager" || user?.role === "admin";
+  const canCreate =
+    user?.role === "production_manager" ||
+    user?.role === "commercial_director" ||
+    user?.role === "admin";
 
   const { data, error } = await supabase
     .from("production_orders")
@@ -105,6 +108,8 @@ export default async function OrdersListPage() {
                       <TableCell>
                         {o.status === "closed" ? (
                           <Badge variant="outline">закрыт</Badge>
+                        ) : o.status === "draft" ? (
+                          <Badge variant="destructive">ждёт приёма</Badge>
                         ) : (
                           <Badge className="bg-accent text-accent-foreground">
                             {STATUS_LABEL[o.status] ?? o.status}

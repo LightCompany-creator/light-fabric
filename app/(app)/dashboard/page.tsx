@@ -14,6 +14,8 @@ import { requireUser } from "@/lib/auth";
 import { USER_ROLE_LABELS } from "@/lib/constants";
 import { DirectorDashboard } from "./director-dashboard";
 import { ForemanDashboard } from "./foreman-dashboard";
+import { ProductionManagerDashboard } from "./production-manager-dashboard";
+import { CommercialDirectorDashboard } from "./commercial-director-dashboard";
 
 export default async function DashboardPage({
   searchParams,
@@ -35,6 +37,10 @@ export default async function DashboardPage({
     content = <DirectorDashboard searchParams={searchParams} />;
   } else if (user.role === "foreman") {
     content = <ForemanDashboard user={user} />;
+  } else if (user.role === "production_manager") {
+    content = <ProductionManagerDashboard />;
+  } else if (user.role === "commercial_director") {
+    content = <CommercialDirectorDashboard />;
   } else if (user.role === "technologist") {
     content = <TechnologistDashboard />;
   } else if (user.role === "accountant") {

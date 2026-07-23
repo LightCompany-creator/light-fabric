@@ -1,7 +1,10 @@
-// Заказы на производство: главный заказ (от коммерческого отдела) →
-// подзаказы по цехам.
-// Главный заказ: draft (создан, без подзаказов) → in_progress → closed
-//   (закрывается вручную начальником производства, когда закрыты ВСЕ подзаказы).
+// Заказы на производство: главный заказ (от коммерческого директора или
+// сразу от начальника производства) → подзаказы по цехам.
+// Главный заказ:
+//   draft (создан коммерческим директором, ждёт приёма) → in_progress
+//   (принят начальником производства ЛИБО создан им самим — тогда draft
+//   пропускается) → closed (закрывается вручную, когда закрыты ВСЕ подзаказы).
+//   Закрытый заказ может переоткрыть начальник производства или админ.
 // Подзаказ: assigned (назначен цеху) → correction_requested (цех попросил
 //   правку) → in_progress (цех принял) → closed (обе стороны подтвердили —
 //   начальник цеха и начальник производства, независимо друг от друга).
@@ -25,6 +28,8 @@ export async function createOrder(
     dueDate: string | null;
     comment: string | null;
     createdBy: string | null;
+    /** Заказ коммерческого директора ждёт приёма; свой — сразу в работе. */
+    needsAcceptance: boolean;
   },
 ): Promise<{ id: string }> {
   const { data, error } = await client
@@ -34,12 +39,39 @@ export async function createOrder(
       due_date: args.dueDate,
       comment: args.comment,
       created_by: args.createdBy,
-      status: "in_progress",
+      status: args.needsAcceptance ? "draft" : "in_progress",
     } as never)
     .select("id")
     .single();
   if (error) throw error;
   return { id: (data as { id: string }).id };
+}
+
+/** Начальник производства принимает заказ коммерческого директора в работу. */
+export async function acceptOrder(
+  client: SupabaseClient<Database>,
+  args: { orderId: string; acceptedBy: string | null },
+): Promise<void> {
+  const { data: docRaw, error: dErr } = await client
+    .from("production_orders")
+    .select("id, status, doc_number")
+    .eq("id", args.orderId)
+    .single();
+  if (dErr) throw dErr;
+  const doc = docRaw as Pick<Tables<"production_orders">, "id" | "status" | "doc_number">;
+  if (doc.status !== "draft") {
+    throw new Error(`Заказ ${doc.doc_number} уже принят или закрыт`);
+  }
+
+  const { error } = await client
+    .from("production_orders")
+    .update({
+      status: "in_progress",
+      accepted_by: args.acceptedBy,
+      accepted_at: new Date().toISOString(),
+    } as never)
+    .eq("id", args.orderId);
+  if (error) throw error;
 }
 
 export async function addOrderLine(
@@ -145,6 +177,20 @@ export async function createSuborder(
     createdBy: string | null;
   },
 ): Promise<{ id: string }> {
+  const { data: orderRaw, error: oErr } = await client
+    .from("production_orders")
+    .select("id, status, doc_number")
+    .eq("id", args.orderId)
+    .single();
+  if (oErr) throw oErr;
+  const order = orderRaw as Pick<Tables<"production_orders">, "id" | "status" | "doc_number">;
+  if (order.status === "draft") {
+    throw new Error(`Заказ ${order.doc_number} ещё не принят в работу`);
+  }
+  if (order.status === "closed") {
+    throw new Error(`Заказ ${order.doc_number} закрыт`);
+  }
+
   const { data, error } = await client
     .from("production_suborders")
     .insert({
@@ -372,4 +418,67 @@ export async function getActiveSuborders(
     .order("due_date");
   if (error) throw error;
   return (data ?? []) as Pick<Tables<"production_suborders">, "id" | "doc_number" | "due_date">[];
+}
+
+/** План/факт по подзаказу, просуммированный по всем строкам — для дерева заказа. */
+export async function getSuborderProgressTotals(
+  client: SupabaseClient<Database>,
+  suborderIds: string[],
+): Promise<Map<string, { planned: number; produced: number }>> {
+  const totals = new Map<string, { planned: number; produced: number }>();
+  if (suborderIds.length === 0) return totals;
+
+  const { data, error } = await client
+    .from("suborder_progress")
+    .select("suborder_id, planned_qty, produced_qty")
+    .in("suborder_id", suborderIds);
+  if (error) throw error;
+
+  for (const row of (data ?? []) as { suborder_id: string; planned_qty: number; produced_qty: number }[]) {
+    const acc = totals.get(row.suborder_id) ?? { planned: 0, produced: 0 };
+    acc.planned += row.planned_qty;
+    acc.produced += row.produced_qty;
+    totals.set(row.suborder_id, acc);
+  }
+  return totals;
+}
+
+/** Заказы от коммерческого директора, которые ждут приёма — бейдж начальнику производства. */
+export async function countOrdersAwaitingAcceptance(
+  client: SupabaseClient<Database>,
+): Promise<number> {
+  const { count, error } = await client
+    .from("production_orders")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "draft");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Подзаказы, где цех уже подтвердил, но производство ещё нет — готовы к финальной проверке. */
+export async function countSuborderConfirmationsPending(
+  client: SupabaseClient<Database>,
+): Promise<number> {
+  const { count, error } = await client
+    .from("production_suborders")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "in_progress")
+    .not("workshop_confirmed_at", "is", null)
+    .is("production_confirmed_at", null);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Новые подзаказы цеха, которые ещё не приняты в работу — бейдж начальнику цеха. */
+export async function countNewSubordersForWorkshop(
+  client: SupabaseClient<Database>,
+  workshopId: string,
+): Promise<number> {
+  const { count, error } = await client
+    .from("production_suborders")
+    .select("id", { count: "exact", head: true })
+    .eq("workshop_id", workshopId)
+    .eq("status", "assigned");
+  if (error) throw error;
+  return count ?? 0;
 }

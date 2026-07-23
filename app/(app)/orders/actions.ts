@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
 import {
+  acceptOrder,
   addOrderLine,
   closeOrder,
   createOrder,
@@ -24,8 +25,14 @@ function errMessage(e: unknown, fallback: string): string {
   return fallback;
 }
 
+/** Начальник производства и админ — распределяют по цехам, закрывают, переоткрывают. */
 function canManageOrders(role: string | null | undefined): boolean {
   return role === "production_manager" || role === "admin";
+}
+
+/** Кто может создать главный заказ и его строки — плюс коммерческий директор. */
+function canCreateOrder(role: string | null | undefined): boolean {
+  return role === "commercial_director" || canManageOrders(role);
 }
 
 export async function createOrderAction(
@@ -33,8 +40,8 @@ export async function createOrderAction(
   formData: FormData,
 ): Promise<FormState> {
   const user = await getCurrentUser();
-  if (!canManageOrders(user?.role)) {
-    return { error: "Заказы распределяет начальник производства" };
+  if (!canCreateOrder(user?.role)) {
+    return { error: "Заказ создаёт коммерческий директор или начальник производства" };
   }
 
   const orderDate = String(
@@ -50,6 +57,8 @@ export async function createOrderAction(
       dueDate,
       comment,
       createdBy: user!.employee?.id ?? null,
+      // Заказ коммерческого директора ждёт приёма; свой (производство/админ) — сразу в работе.
+      needsAcceptance: user!.role === "commercial_director",
     });
     revalidatePath("/orders");
     redirect(`/orders/${id}`);
@@ -60,11 +69,40 @@ export async function createOrderAction(
   }
 }
 
+export async function acceptOrderAction(
+  orderId: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _prev: FormState,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _formData: FormData,
+): Promise<FormState> {
+  const user = await getCurrentUser();
+  if (!canManageOrders(user?.role)) {
+    return { error: "Принять заказ может начальник производства" };
+  }
+
+  const supabase = createClient();
+  try {
+    await acceptOrder(supabase, { orderId, acceptedBy: user!.employee?.id ?? null });
+    revalidatePath(`/orders/${orderId}`);
+    revalidatePath("/orders");
+    return { error: null };
+  } catch (e) {
+    console.error("[acceptOrderAction] failed:", e);
+    return { error: errMessage(e, "Не удалось принять заказ") };
+  }
+}
+
 export async function addOrderLineAction(
   orderId: string,
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
+  const user = await getCurrentUser();
+  if (!canCreateOrder(user?.role)) {
+    return { error: "Строки заказа меняет коммерческий директор или начальник производства" };
+  }
+
   const articleId = String(formData.get("article_id") || "");
   const qty = Number(formData.get("qty") || 0);
   if (!articleId) return { error: "Выберите артикул" };
@@ -84,6 +122,9 @@ export async function addOrderLineAction(
 export async function removeOrderLineAction(formData: FormData) {
   const orderId = String(formData.get("order_id"));
   const lineId = String(formData.get("id"));
+  const user = await getCurrentUser();
+  if (!canCreateOrder(user?.role)) return;
+
   const supabase = createClient();
   await removeOrderLine(supabase, lineId);
   revalidatePath(`/orders/${orderId}`);
@@ -91,6 +132,9 @@ export async function removeOrderLineAction(formData: FormData) {
 
 export async function deleteOrderAction(formData: FormData) {
   const orderId = String(formData.get("id"));
+  const user = await getCurrentUser();
+  if (!canCreateOrder(user?.role)) return;
+
   const supabase = createClient();
   await deleteOrder(supabase, orderId);
   revalidatePath("/orders");
@@ -160,13 +204,13 @@ export async function reopenOrderAction(
   _formData: FormData,
 ): Promise<FormState> {
   const user = await getCurrentUser();
-  if (user?.role !== "admin") {
-    return { error: "Переоткрыть закрытый заказ может только администратор" };
+  if (!canManageOrders(user?.role)) {
+    return { error: "Переоткрыть закрытый заказ может начальник производства или администратор" };
   }
 
   const supabase = createClient();
   try {
-    await reopenOrder(supabase, { orderId, reopenedBy: user.employee?.id ?? null });
+    await reopenOrder(supabase, { orderId, reopenedBy: user!.employee?.id ?? null });
     revalidatePath(`/orders/${orderId}`);
     revalidatePath("/orders");
     return { error: null };

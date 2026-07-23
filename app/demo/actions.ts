@@ -12,6 +12,7 @@ const DEMO_ACCOUNTS: Record<string, string> = {
   foreman: "foreman@lightflow.test",
   admin: "admin@lightflow.test",
   production_manager: "production@lightflow.test",
+  commercial_director: "commercial@lightflow.test",
 };
 
 // Карточки начальников цехов: ключ foreman-<КОД> → foreman-<код>@lightflow.test

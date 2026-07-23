@@ -521,6 +521,8 @@ production_orders: {
           comment: string | null;
           status: "draft" | "in_progress" | "closed";
           created_by: string | null;
+          accepted_by: string | null;
+          accepted_at: string | null;
           closed_by: string | null;
           closed_at: string | null;
           reopened_by: string | null;
@@ -535,6 +537,8 @@ production_orders: {
           comment?: string | null;
           status?: "draft" | "in_progress" | "closed";
           created_by?: string | null;
+          accepted_by?: string | null;
+          accepted_at?: string | null;
           closed_by?: string | null;
           closed_at?: string | null;
           reopened_by?: string | null;
@@ -549,6 +553,8 @@ production_orders: {
           comment?: string | null;
           status?: "draft" | "in_progress" | "closed";
           created_by?: string | null;
+          accepted_by?: string | null;
+          accepted_at?: string | null;
           closed_by?: string | null;
           closed_at?: string | null;
           reopened_by?: string | null;
@@ -693,7 +699,8 @@ production_suborder_lines: {
         | "director"
         | "accountant"
         | "admin"
-        | "production_manager";
+        | "production_manager"
+        | "commercial_director";
       shift_type: "день" | "ночь";
       shift_status: "open" | "closed";
       rate_unit_type: "пара" | "деталь" | "операция" | "единица" | "кг";

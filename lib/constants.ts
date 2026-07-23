@@ -72,6 +72,7 @@ export const USER_ROLE_LABELS = {
   accountant: "Бухгалтер",
   admin: "Администратор",
   production_manager: "Начальник производства",
+  commercial_director: "Коммерческий директор",
 } as const;
 
 export type UserRole = keyof typeof USER_ROLE_LABELS;

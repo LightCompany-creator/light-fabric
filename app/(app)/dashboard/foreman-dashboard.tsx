@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ClipboardList, Plus } from "lucide-react";
+import { ClipboardList, ListTodo, Plus } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/server";
 import { getForemanOverview } from "@/lib/services/analytics";
+import { countNewSubordersForWorkshop } from "@/lib/services/orders";
 import type { CurrentUser } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,14 +22,35 @@ export async function ForemanDashboard({ user }: { user: CurrentUser }) {
     );
   }
   const supabase = createClient();
-  const data = await getForemanOverview(supabase, {
-    workshopId: user.employee.workshop_id,
-    foremanId: user.employee.id,
-  });
+  const [data, newSuborders] = await Promise.all([
+    getForemanOverview(supabase, {
+      workshopId: user.employee.workshop_id,
+      foremanId: user.employee.id,
+    }),
+    countNewSubordersForWorkshop(supabase, user.employee.workshop_id),
+  ]);
   const workshop = user.employee.workshop?.name ?? "";
 
   return (
     <div className="space-y-6">
+      {newSuborders > 0 ? (
+        <Link href="/orders/suborders">
+          <Card className="border-destructive/40 bg-destructive/5 transition-colors hover:bg-destructive/10">
+            <CardContent className="flex items-center justify-between pt-6">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Новые подзаказы от начальника производства
+                </p>
+                <p className="mt-1 font-mono-tabular text-3xl font-bold text-destructive">
+                  {newSuborders}
+                </p>
+              </div>
+              <ListTodo className="h-6 w-6 text-destructive" />
+            </CardContent>
+          </Card>
+        </Link>
+      ) : null}
+
       {data.currentShift ? (
         <Card className="border-accent/40 bg-accent/5">
           <CardHeader>

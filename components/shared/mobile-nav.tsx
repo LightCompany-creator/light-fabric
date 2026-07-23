@@ -11,9 +11,15 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import type { Enums } from "@/lib/supabase/types";
-import { NavList } from "./nav-list";
+import { NavList, type NavBadge } from "./nav-list";
 
-export function MobileNav({ role }: { role: Enums<"user_role"> | null }) {
+export function MobileNav({
+  role,
+  badge,
+}: {
+  role: Enums<"user_role"> | null;
+  badge: NavBadge;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -28,7 +34,7 @@ export function MobileNav({ role }: { role: Enums<"user_role"> | null }) {
           <SheetTitle className="text-brand">LightFabric</SheetTitle>
         </SheetHeader>
         <div className="mt-4">
-          <NavList role={role} onNavigate={() => setOpen(false)} />
+          <NavList role={role} badge={badge} onNavigate={() => setOpen(false)} />
         </div>
       </SheetContent>
     </Sheet>

@@ -60,6 +60,11 @@ const NAV: Record<Enums<"user_role">, NavItem[]> = {
     { href: "/shifts", label: "Все смены", icon: ClipboardList },
     { href: "/stocks", label: "Остатки", icon: Boxes },
   ],
+  commercial_director: [
+    { href: "/dashboard", label: "Главная", icon: Home },
+    { href: "/orders", label: "Заказы на производство", icon: ListOrdered },
+    { href: "/reports/production", label: "Производство", icon: TrendingUp },
+  ],
   technologist: [
     { href: "/dashboard", label: "Главная", icon: Home },
     { href: "/catalog/articles", label: "Артикулы", icon: Tag },
@@ -112,11 +117,16 @@ const NAV: Record<Enums<"user_role">, NavItem[]> = {
   ],
 };
 
+/** Счётчик непрочитанного по разделу заказов — светится в меню, пока не разберут. */
+export type NavBadge = { href: string; count: number } | null;
+
 export function NavList({
   role,
+  badge,
   onNavigate,
 }: {
   role: Enums<"user_role"> | null;
+  badge?: NavBadge;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
@@ -135,6 +145,7 @@ export function NavList({
             ? "bg-primary text-primary-foreground"
             : "text-foreground hover:bg-secondary",
         );
+        const count = badge && badge.href === item.href ? badge.count : 0;
 
         if (item.external) {
           return (
@@ -160,7 +171,12 @@ export function NavList({
             className={className}
           >
             <Icon className="h-4 w-4 shrink-0" />
-            <span className="truncate">{item.label}</span>
+            <span className="flex-1 truncate">{item.label}</span>
+            {count > 0 ? (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-xs font-semibold text-destructive-foreground">
+                {count}
+              </span>
+            ) : null}
           </Link>
         );
       })}

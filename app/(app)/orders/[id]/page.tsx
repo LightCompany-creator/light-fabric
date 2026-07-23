@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
 import type { Tables } from "@/lib/supabase/types";
+import { getSuborderProgressTotals } from "@/lib/services/orders";
 import { OrderDoc } from "./order-doc";
 
 export default async function OrderPage({ params }: { params: { id: string } }) {
@@ -42,6 +43,11 @@ export default async function OrderPage({ params }: { params: { id: string } }) 
     workshop: Pick<Tables<"workshops">, "code" | "name"> | null;
   })[];
 
+  const progressTotals = await getSuborderProgressTotals(
+    supabase,
+    suborders.map((s) => s.id),
+  );
+
   const { data: articlesRaw } = await supabase
     .from("articles")
     .select("id, code, name")
@@ -57,6 +63,7 @@ export default async function OrderPage({ params }: { params: { id: string } }) 
   const workshops = (wsRaw ?? []) as Pick<Tables<"workshops">, "id" | "code" | "name">[];
 
   const canManage = user?.role === "production_manager" || user?.role === "admin";
+  const canCreate = user?.role === "commercial_director" || canManage;
 
   return (
     <OrderDoc
@@ -77,17 +84,22 @@ export default async function OrderPage({ params }: { params: { id: string } }) 
         articleCode: l.article?.code ?? "—",
         articleName: l.article?.name ?? "—",
       }))}
-      suborders={suborders.map((s) => ({
-        id: s.id,
-        docNumber: s.doc_number,
-        status: s.status,
-        dueDate: s.due_date,
-        workshop: s.workshop ? `${s.workshop.code} · ${s.workshop.name}` : "—",
-      }))}
+      suborders={suborders.map((s) => {
+        const totals = progressTotals.get(s.id) ?? { planned: 0, produced: 0 };
+        return {
+          id: s.id,
+          docNumber: s.doc_number,
+          status: s.status,
+          dueDate: s.due_date,
+          workshop: s.workshop ? `${s.workshop.code} · ${s.workshop.name}` : "—",
+          planned: totals.planned,
+          produced: totals.produced,
+        };
+      })}
       articles={articles}
       workshops={workshops}
       canManage={canManage}
-      isAdmin={user?.role === "admin"}
+      canCreate={canCreate}
     />
   );
 }

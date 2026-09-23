@@ -74,6 +74,48 @@ const transfers = new Map<Id, Transfer>();
 const idempotency = new Map<string, unknown>();
 let docNo = 123;
 
+// Настоящая 1С помнит документы между запусками, поэтому и заглушка должна:
+// иначе после каждой перезагрузки страницы смена пропадает и проверить ничего нельзя.
+const PERSIST_KEY = "lf.1c.mock";
+let restored = false;
+
+function persist(): void {
+  try {
+    window.localStorage.setItem(
+      PERSIST_KEY,
+      JSON.stringify({
+        shifts: Array.from(shifts.entries()),
+        transfers: Array.from(transfers.entries()),
+        stock,
+        docNo,
+      }),
+    );
+  } catch {
+    /* хранилище недоступно: работаем в памяти */
+  }
+}
+
+function restore(): void {
+  if (restored || typeof window === "undefined") return;
+  restored = true;
+  try {
+    const raw = window.localStorage.getItem(PERSIST_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw) as {
+      shifts: [Id, Shift][];
+      transfers: [Id, Transfer][];
+      stock: Record<Id, Record<Id, number>>;
+      docNo: number;
+    };
+    saved.shifts.forEach(([id, doc]) => shifts.set(id, doc));
+    saved.transfers.forEach(([id, doc]) => transfers.set(id, doc));
+    Object.assign(stock, saved.stock);
+    docNo = saved.docNo ?? docNo;
+  } catch {
+    /* повреждённые данные заглушки не повод падать */
+  }
+}
+
 function bump(version: string): string {
   return String(Number(version || "0") + 1);
 }
@@ -133,6 +175,7 @@ export class Api1CMock implements Api1C {
       userName: options.userName ?? "Размела",
       workshopIds: options.workshopIds ?? ["w-lit", "w-mark"],
     };
+    restore();
   }
 
   private async wait() {
@@ -221,7 +264,10 @@ export class Api1CMock implements Api1C {
       materials: [],
       production_report: null,
     };
+    // Заглушка держит цех прямо в документе: в 1С его знает сам документ.
+    (shift as Shift & { workshop_id?: Id }).workshop_id = workshopId;
     shifts.set(shift.id, shift);
+    persist();
     return structuredClone(shift);
   }
 
@@ -233,6 +279,7 @@ export class Api1CMock implements Api1C {
     }
     checkVersion(shift.version, version, structuredClone(shift));
     Object.assign(shift, state, { version: bump(shift.version) });
+    persist();
     return shift.version;
   }
 
@@ -260,7 +307,7 @@ export class Api1CMock implements Api1C {
     }
 
     // Контроль отрицательных остатков сырьевых складов: тот же отказ, что даст 1С.
-    const workshopId = "w-lit";
+    const workshopId = (shift as Shift & { workshop_id?: Id }).workshop_id ?? "w-lit";
     const shortage = materials
       .filter((m) => (stock[workshopId]?.[m.item_id] ?? 0) < m.qty)
       .map((m) => ({
@@ -292,6 +339,7 @@ export class Api1CMock implements Api1C {
 
     const result = { ok: true as const, shift: structuredClone(shift), warnings };
     idempotency.set(opts.idempotencyKey, result);
+    persist();
     return result;
   }
 
@@ -305,6 +353,7 @@ export class Api1CMock implements Api1C {
     shift.closed_at = null;
     shift.production_report = null;
     shift.version = bump(shift.version);
+    persist();
     return { ok: true as const, shift: structuredClone(shift) };
   }
 
@@ -399,6 +448,7 @@ export class Api1CMock implements Api1C {
     };
     transfers.set(transfer.id, transfer);
     idempotency.set(idempotencyKey, transfer);
+    persist();
     return structuredClone(transfer);
   }
 
@@ -424,6 +474,7 @@ export class Api1CMock implements Api1C {
     live.sender_confirmed = null;
     live.receiver_confirmed = null;
     live.version = bump(live.version);
+    persist();
     return structuredClone(live);
   }
 
@@ -448,6 +499,7 @@ export class Api1CMock implements Api1C {
       live.status = "posted";
     }
     live.version = bump(live.version);
+    persist();
     return structuredClone(live);
   }
 
@@ -457,6 +509,7 @@ export class Api1CMock implements Api1C {
     if (!live) throw new Api1CError("not_found", "Перемещение не найдено", 404);
     if (live.status === "posted") throw new Api1CError("state", "Проведённый документ удалить нельзя", 409);
     transfers.delete(transferId);
+    persist();
     return { ok: true as const };
   }
 }

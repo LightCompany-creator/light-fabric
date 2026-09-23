@@ -19,6 +19,25 @@ export function Workspace() {
   const [context, setContext] = useState<WorkshopContext | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [opening, setOpening] = useState<1 | 2 | null>(null);
+
+  /** Открыть смену на сегодня. Если такая уже открыта, 1С вернёт её же. */
+  const openShift = useCallback(
+    async (shiftNo: 1 | 2) => {
+      if (!workshop) return;
+      setOpening(shiftNo);
+      setError(null);
+      try {
+        const shift = await api.openShift(workshop.id, new Date().toISOString().slice(0, 10), shiftNo);
+        router.push(`/w/shift/${shift.id}`);
+      } catch (e) {
+        setError(describeError(e));
+      } finally {
+        setOpening(null);
+      }
+    },
+    [api, router, workshop],
+  );
 
   useEffect(() => {
     if (status === "anonymous") router.replace("/enter");
@@ -114,19 +133,40 @@ export function Workspace() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Смены</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm">
+            <CardContent className="space-y-3 text-sm">
               {context.open_shifts.length === 0 ? (
                 <p className="text-muted-foreground">Открытых смен нет.</p>
               ) : (
                 context.open_shifts.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between">
+                  <div key={s.id} className="flex items-center justify-between gap-3">
                     <span>
                       {s.number} · {s.date} · {s.shift_no} смена
                     </span>
-                    <Badge variant="secondary">открыта</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">открыта</Badge>
+                      <Button size="sm" variant="outline" onClick={() => router.push(`/w/shift/${s.id}`)}>
+                        Продолжить
+                      </Button>
+                    </div>
                   </div>
                 ))
               )}
+
+              <div className="flex flex-wrap gap-2 border-t pt-3">
+                <Button size="sm" onClick={() => void openShift(1)} disabled={opening !== null}>
+                  {opening === 1 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Открыть 1 смену
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void openShift(2)}
+                  disabled={opening !== null}
+                >
+                  {opening === 2 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Открыть 2 смену
+                </Button>
+              </div>
             </CardContent>
           </Card>
 

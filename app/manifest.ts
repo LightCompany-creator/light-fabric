@@ -4,8 +4,10 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "LightFabric — MES Light Company",
     short_name: "LightFabric",
-    description: "Оперативный цеховой учёт. Смены, выработка, ЗП, обмен с 1С.",
-    start_url: "/dashboard",
+    description: "Оперативный цеховой учёт: смены, выработка, передачи между цехами.",
+    // Планшет в цеху открывается сразу на рабочем месте. Если вход не выполнен,
+    // приложение само отправит на страницу входа.
+    start_url: "/w",
     scope: "/",
     display: "standalone",
     background_color: "#F4F7FC",
@@ -42,20 +44,20 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       {
-        name: "Открыть смену",
-        short_name: "Смена",
-        url: "/shifts/new",
-        description: "Открыть новую сменy в цехе",
+        name: "Рабочее место цеха",
+        short_name: "Цех",
+        url: "/w",
+        description: "Смены, остатки и передачи своего цеха",
       },
       {
-        name: "Мои смены",
-        short_name: "Смены",
-        url: "/shifts",
+        name: "История смен",
+        short_name: "История",
+        url: "/w/shifts",
       },
       {
-        name: "Дашборд",
-        short_name: "Дашборд",
-        url: "/dashboard",
+        name: "Перемещения",
+        short_name: "Передачи",
+        url: "/w/transfers",
       },
     ],
   };

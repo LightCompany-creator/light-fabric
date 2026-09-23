@@ -18,9 +18,9 @@ import type { Api1C, Me, WorkshopRef } from "./index";
 import { clearSession, loadSession, saveSession, updateSession } from "./session";
 
 export type Session1C =
-  | { status: "loading"; me: null; workshop: null }
-  | { status: "anonymous"; me: null; workshop: null }
-  | { status: "ready"; me: Me; workshop: WorkshopRef | null };
+  | { status: "loading"; me: null; workshop: null; offline?: boolean }
+  | { status: "anonymous"; me: null; workshop: null; offline?: boolean }
+  | { status: "ready"; me: Me; workshop: WorkshopRef | null; offline?: boolean };
 
 type Context1C = Session1C & {
   /** Клиент обмена: с учётными данными сеанса, если вход выполнен. */
@@ -66,16 +66,24 @@ export function Api1CProvider({ children }: { children: ReactNode }) {
     setCredentials({ login: stored.login, password: stored.password });
 
     let cancelled = false;
+    const pick = (me: Me) =>
+      me.workshops.find((w) => w.id === stored.workshopId) ?? me.workshops[0] ?? null;
+
     createApi1C({ login: stored.login, password: stored.password })
       .me()
       .then((me) => {
         if (cancelled) return;
-        const workshop = me.workshops.find((w) => w.id === stored.workshopId) ?? me.workshops[0] ?? null;
-        setSession({ status: "ready", me, workshop });
+        saveSession({ ...stored, me, userName: me.user.name });
+        setSession({ status: "ready", me, workshop: pick(me) });
       })
-      .catch(() => {
+      .catch((e) => {
         if (cancelled) return;
-        // Пароль сменили или сети нет: спрашиваем заново, чтобы не гадать.
+        if (e instanceof Api1COfflineError && stored.me) {
+          // Связи нет, но человек уже входил на этом планшете: пускаем работать.
+          setSession({ status: "ready", me: stored.me, workshop: pick(stored.me), offline: true });
+          return;
+        }
+        // Учётные данные больше не подходят: спрашиваем заново.
         clearSession();
         setSession({ status: "anonymous", me: null, workshop: null });
       });
@@ -89,7 +97,7 @@ export function Api1CProvider({ children }: { children: ReactNode }) {
     const client = createApi1C({ login, password });
     const me = await client.me();
     const workshop = me.workshops[0] ?? null;
-    saveSession({ login, password, workshopId: workshop?.id, userName: me.user.name });
+    saveSession({ login, password, workshopId: workshop?.id, userName: me.user.name, me });
     setCredentials({ login, password });
     setSession({ status: "ready", me, workshop });
   }, []);

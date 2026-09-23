@@ -94,7 +94,10 @@ export function ShiftScreen({ shiftId }: { shiftId: string }) {
     );
   }
 
-  const closed = shift.shift?.status === "closed";
+  // Без связи документ из 1С не пришёл: шапку берём из кэша контекста цеха,
+  // чтобы человек видел, какую смену он ведёт.
+  const head = shift.shift ?? context.open_shifts.find((s) => s.id === shiftId) ?? null;
+  const closed = head?.status === "closed";
 
   // Итог выпуска подтверждает человек. Пока он не подтверждён, закрывать нельзя:
   // иначе 1С не приходует продукцию и не спишет материалы, а смена будет выглядеть сданной.
@@ -112,11 +115,11 @@ export function ShiftScreen({ shiftId }: { shiftId: string }) {
           </Button>
           <div>
             <h1 className="text-xl font-bold">
-              {shift.shift?.number ?? "Смена"}
+              {head?.number ?? "Смена"}
               {closed ? <Badge className="ml-2">закрыта</Badge> : null}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {shift.shift?.date} · {shift.shift?.shift_no} смена · {workshop?.name}
+              {head?.date} · {head?.shift_no} смена · {workshop?.name}
             </p>
           </div>
         </div>

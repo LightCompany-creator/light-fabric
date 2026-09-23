@@ -11,14 +11,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { describeError, useApi1C } from "@/lib/api1c/provider";
-import type { WorkshopContext } from "@/lib/api1c";
+import { useWorkshopContext } from "@/lib/api1c/use-workshop-context";
 
 export function Workspace() {
   const router = useRouter();
   const { status, me, workshop, api, isMock, signOut, selectWorkshop } = useApi1C();
-  const [context, setContext] = useState<WorkshopContext | null>(null);
+  const { context, loading, error: contextError, staleSince, reload } = useWorkshopContext(workshop?.id);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [opening, setOpening] = useState<1 | 2 | null>(null);
 
   /** Открыть смену на сегодня. Если такая уже открыта, 1С вернёт её же. */
@@ -43,22 +42,6 @@ export function Workspace() {
     if (status === "anonymous") router.replace("/enter");
   }, [status, router]);
 
-  const loadContext = useCallback(async () => {
-    if (!workshop) return;
-    setLoading(true);
-    setError(null);
-    try {
-      setContext(await api.workshopContext(workshop.id));
-    } catch (e) {
-      setError(describeError(e));
-    } finally {
-      setLoading(false);
-    }
-  }, [api, workshop]);
-
-  useEffect(() => {
-    void loadContext();
-  }, [loadContext]);
 
   if (status !== "ready") {
     return (
@@ -81,7 +64,7 @@ export function Workspace() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => void loadContext()} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={() => void reload(true)} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Обновить
           </Button>
@@ -96,6 +79,17 @@ export function Workspace() {
         <p className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
           Данные из заглушки по контракту этапа 1. Когда Арсен опубликует сервис,
           останется задать адрес в NEXT_PUBLIC_API_1C_URL.
+        </p>
+      ) : null}
+
+      {staleSince ? (
+        <p className="rounded-md border border-destructive p-3 text-sm text-destructive">
+          Нет связи с 1С. Данные от {new Date(staleSince).toLocaleString("ru-RU", {
+            day: "numeric",
+            month: "long",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
         </p>
       ) : null}
 
@@ -114,9 +108,9 @@ export function Workspace() {
         </div>
       ) : null}
 
-      {error ? (
+      {error || contextError ? (
         <Card className="border-destructive">
-          <CardContent className="pt-6 text-sm text-destructive">{error}</CardContent>
+          <CardContent className="pt-6 text-sm text-destructive">{error ?? contextError}</CardContent>
         </Card>
       ) : null}
 

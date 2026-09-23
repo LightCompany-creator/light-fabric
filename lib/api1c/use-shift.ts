@@ -116,10 +116,12 @@ export function useShift(shiftId: string): UseShift {
       } catch (e) {
         if (cancelled) return;
         const draft = readDraft(shiftId);
-        if (draft && e instanceof Api1COfflineError) {
-          // Связи нет, но смена уже открыта и лежит на планшете: работаем дальше.
-          setState(draft);
-          latest.current = draft;
+        if (e instanceof Api1COfflineError) {
+          // Связи нет: продолжаем с того, что лежит на планшете. Если черновика ещё
+          // нет, начинаем с чистого документа: всё уйдёт в 1С, когда сеть вернётся.
+          const next = draft ?? EMPTY_STATE;
+          setState(next);
+          latest.current = next;
           setSync("offline");
         } else {
           setError(describeError(e));

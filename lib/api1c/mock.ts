@@ -9,7 +9,7 @@
 // сброс подтверждений при правке перемещения.
 
 import type { Api1C } from "./api";
-import { Api1CError } from "./client";
+import { Api1CError, Api1COfflineError } from "./client";
 import type {
   ConfirmSide,
   Employee1C,
@@ -166,6 +166,7 @@ let docNo = 123;
 // Настоящая 1С помнит документы между запусками, поэтому и заглушка должна:
 // иначе после каждой перезагрузки страницы смена пропадает и проверить ничего нельзя.
 const PERSIST_KEY = "lf.1c.mock.v2";
+const OFFLINE_KEY = "lf.1c.mock.offline";
 let restored = false;
 
 function persist(): void {
@@ -387,6 +388,13 @@ export class Api1CMock implements Api1C {
 
   private async wait() {
     if (this.opts.latencyMs) await new Promise((r) => setTimeout(r, this.opts.latencyMs));
+    // Режим «нет связи» для проверки офлайна: включается из консоли планшета
+    // localStorage.setItem("lf.1c.mock.offline", "1")
+    try {
+      if (window.localStorage.getItem(OFFLINE_KEY)) throw new Api1COfflineError();
+    } catch (e) {
+      if (e instanceof Api1COfflineError) throw e;
+    }
   }
 
   async ping() {

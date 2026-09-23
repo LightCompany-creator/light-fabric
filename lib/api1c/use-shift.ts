@@ -75,6 +75,8 @@ export type UseShift = {
   saveNow: () => Promise<void>;
   /** Закрыть смену: 1С проводит отчёт производства. */
   close: (comment?: string) => Promise<Shift>;
+  /** Переоткрыть закрытую смену. Только администратор. */
+  reopen: (reason: string) => Promise<void>;
   /** Конфликт: оставить своё (перезаписать) или взять версию из 1С. */
   resolveKeepMine: () => Promise<void>;
   resolveTakeTheirs: () => Promise<void>;
@@ -220,6 +222,20 @@ export function useShift(shiftId: string): UseShift {
     [api, push, shiftId],
   );
 
+  const reopen = useCallback(
+    async (reason: string) => {
+      const result = await api.reopenShift(shiftId, reason);
+      const next = pickState(result.shift);
+      setShift(result.shift);
+      setState(next);
+      latest.current = next;
+      setVersion(result.shift.version);
+      setError(null);
+      setSync("saved");
+    },
+    [api, shiftId],
+  );
+
   // ---------- конфликты ----------
 
   const resolveKeepMine = useCallback(async () => {
@@ -256,6 +272,7 @@ export function useShift(shiftId: string): UseShift {
     update,
     saveNow,
     close,
+    reopen,
     resolveKeepMine,
     resolveTakeTheirs,
   };

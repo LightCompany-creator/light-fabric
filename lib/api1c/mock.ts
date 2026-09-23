@@ -228,6 +228,14 @@ function seedHistory(): void {
       workshop_id: row.workshop,
     };
     shifts.set(id, shift);
+
+    // Движения этих смен уже прошли: продукция на складе, материалы списаны.
+    // Без этого остатки не сходятся с историей, и переоткрыть смену нельзя.
+    const target = stock[row.workshop];
+    target[row.product] = round((target[row.product] ?? 0) + row.qty);
+    for (const m of shift.materials) {
+      target[m.item_id] = round((target[m.item_id] ?? 0) - m.qty);
+    }
   }
 }
 
@@ -564,7 +572,28 @@ export class Api1CMock implements Api1C {
     if (!this.opts.isAdmin) {
       throw new Api1CError("forbidden", "Переоткрыть смену может только администратор", 403);
     }
-    const shift = requireShift(shiftId);
+    const shift = requireShift(shiftId) as ShiftWithWorkshop;
+    if (shift.status !== "closed") throw new Api1CError("state", "Смена и так открыта", 409);
+    const workshopId = shift.workshop_id ?? "w-lit";
+
+    // 1С распроводит отчёт производства, то есть отменяет движения. Если продукцию
+    // уже передали дальше, снимать её со склада не с чего, и отмена не пройдёт.
+    const gone = shift.products.filter((p) => (stock[workshopId]?.[p.product_id] ?? 0) < p.qty);
+    if (gone.length) {
+      throw new Api1CError(
+        "posting_failed",
+        `Продукции уже нет на складе цеха: ${item(gone[0].product_id).name}. Отчёт производства не распровести.`,
+        422,
+      );
+    }
+
+    for (const p of shift.products) {
+      stock[workshopId][p.product_id] = round(stock[workshopId][p.product_id] - p.qty);
+    }
+    for (const m of shift.materials) {
+      stock[workshopId][m.item_id] = round((stock[workshopId][m.item_id] ?? 0) + m.qty);
+    }
+
     // В 1С причина уходит в документ, здесь просто дописываем к комментарию.
     if (reason) shift.comment = shift.comment ? `${shift.comment}. ${reason}` : reason;
     shift.status = "open";

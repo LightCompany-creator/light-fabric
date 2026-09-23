@@ -20,7 +20,13 @@ export type Credentials = { login: string; password: string };
  */
 export function createApi1C(credentials?: Credentials): Api1C {
   const baseUrl = process.env.NEXT_PUBLIC_API_1C_URL;
-  if (!baseUrl) return new Api1CMock();
+  if (!baseUrl) {
+    // В заглушке права администратора даёт сам логин: войдите как «админ»,
+    // чтобы проверить переоткрытие смены. В 1С это решает сам пользователь.
+    const login = (credentials?.login ?? "").toLowerCase();
+    const isAdmin = login.includes("админ") || login.includes("admin");
+    return new Api1CMock({ isAdmin, userName: isAdmin ? "Администратор" : undefined });
+  }
   if (!credentials) throw new Error("Нужны логин и пароль пользователя 1С");
 
   return new Api1CClient({

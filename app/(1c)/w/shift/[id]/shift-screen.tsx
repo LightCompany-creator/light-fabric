@@ -631,7 +631,7 @@ function CloseSection({
   if (disabled) {
     return (
       <Card>
-        <CardContent className="space-y-2 pt-6 text-sm">
+        <CardContent className="space-y-3 pt-6 text-sm">
           <p className="font-medium">Смена закрыта.</p>
           {report ? (
             <p className="text-muted-foreground">
@@ -641,6 +641,8 @@ function CloseSection({
           <Button variant="outline" size="sm" onClick={() => router.push("/w")}>
             К рабочему месту
           </Button>
+
+          <ReopenBlock shift={shift} workshopId={workshopId} />
         </CardContent>
       </Card>
     );
@@ -707,6 +709,88 @@ function CloseSection({
         </p>
       </CardContent>
     </Card>
+  );
+}
+
+// ---------- переоткрытие ----------
+
+/**
+ * Переоткрыть закрытую смену может только администратор: 1С распроведёт отчёт
+ * производства, то есть отменит приход продукции, списание материалов
+ * и начисление зарплаты. Поэтому просим причину и предупреждаем, что будет.
+ */
+function ReopenBlock({
+  shift,
+  workshopId,
+}: {
+  shift: ReturnType<typeof useShift>;
+  workshopId?: string;
+}) {
+  const { me } = useApi1C();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  if (!me?.is_admin) return null;
+
+  async function handleReopen() {
+    setBusy(true);
+    setFailure(null);
+    try {
+      await shift.reopen(reason.trim());
+      invalidateWorkshopContext(workshopId);
+      setOpen(false);
+      setReason("");
+    } catch (e) {
+      setFailure(describeError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
+        Переоткрыть смену
+      </Button>
+    );
+  }
+
+  return (
+    <div className="space-y-3 rounded-md border border-dashed p-3">
+      <p className="text-muted-foreground">
+        1С распроведёт отчёт производства: приход продукции, списание материалов
+        и начисление зарплаты отменятся.
+      </p>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="reason">Причина</Label>
+        <Input
+          id="reason"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="ошиблись в количестве"
+        />
+      </div>
+
+      {failure ? (
+        <div className="flex gap-2 text-destructive">
+          <TriangleAlert className="h-4 w-4 shrink-0" />
+          <p>{failure}</p>
+        </div>
+      ) : null}
+
+      <div className="flex gap-2">
+        <Button size="sm" onClick={() => void handleReopen()} disabled={busy || !reason.trim()}>
+          {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Переоткрыть
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setOpen(false)} disabled={busy}>
+          Отмена
+        </Button>
+      </div>
+    </div>
   );
 }
 

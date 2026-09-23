@@ -184,12 +184,62 @@ function persist(): void {
   }
 }
 
+/** Несколько закрытых смен за прошлые дни, чтобы истории было что показывать. */
+function seedHistory(): void {
+  if (shifts.size > 0) return;
+  const day = (back: number) =>
+    new Date(Date.now() - back * 86_400_000).toISOString().slice(0, 10);
+
+  const past: { workshop: Id; date: string; shiftNo: 1 | 2; product: Id; qty: number; defect: number }[] = [
+    { workshop: "w-lit", date: day(1), shiftNo: 1, product: "i-galosh", qty: 640, defect: 12 },
+    { workshop: "w-lit", date: day(1), shiftNo: 2, product: "i-galosh", qty: 410, defect: 4 },
+    { workshop: "w-lit", date: day(2), shiftNo: 1, product: "i-galosh", qty: 580, defect: 9 },
+    { workshop: "w-sew", date: day(1), shiftNo: 1, product: "i-sock", qty: 300, defect: 2 },
+    { workshop: "w-assy", date: day(2), shiftNo: 1, product: "i-boot", qty: 120, defect: 1 },
+  ];
+
+  for (const row of past) {
+    const id = uid();
+    const shift: ShiftWithWorkshop = {
+      id,
+      number: `ЛФ-${String(++docNo).padStart(6, "0")}`,
+      date: row.date,
+      shift_no: row.shiftNo,
+      status: "closed",
+      version: "3",
+      responsible: "Размела",
+      created_at: `${row.date}T08:00:00`,
+      closed_at: `${row.date}T20:30:00`,
+      comment: "",
+      task_id: null,
+      workers: [],
+      outputs: [],
+      products: [{ product_id: row.product, qty: row.qty, defect_qty: row.defect }],
+      // Как и в жизни: при закрытии 1С списала материалы по спецификации.
+      materials: (findProduct(row.product)?.spec ?? []).map((line) => ({
+        item_id: line.item_id,
+        qty: round(line.qty_per_unit * row.qty),
+      })),
+      production_report: {
+        id: uid(),
+        number: `0000-${String(++docNo).padStart(6, "0")}`,
+        date: row.date,
+      },
+      workshop_id: row.workshop,
+    };
+    shifts.set(id, shift);
+  }
+}
+
 function restore(): void {
   if (restored || typeof window === "undefined") return;
   restored = true;
   try {
     const raw = window.localStorage.getItem(PERSIST_KEY);
-    if (!raw) return;
+    if (!raw) {
+      seedHistory();
+      return;
+    }
     const saved = JSON.parse(raw) as {
       shifts: [Id, Shift][];
       transfers: [Id, Transfer][];
@@ -372,8 +422,33 @@ export class Api1CMock implements Api1C {
     const items = Array.from(shifts.values())
       .filter((s) => (s as ShiftWithWorkshop).workshop_id === query.workshop)
       .filter((s) => (query.status && query.status !== "all" ? s.status === query.status : true))
-      .sort((a, b) => b.date.localeCompare(a.date));
-    return { ok: true, total: items.length, page: 1, page_size: items.length || 1, items };
+      .filter((s) => (query.from ? s.date >= query.from : true))
+      .filter((s) => (query.to ? s.date <= query.to : true))
+      .sort((a, b) => (b.date + b.number).localeCompare(a.date + a.number))
+      .map(
+        (s): ShiftHead => ({
+          id: s.id,
+          number: s.number,
+          date: s.date,
+          shift_no: s.shift_no,
+          status: s.status,
+          version: s.version,
+          responsible: s.responsible,
+          produced_total: round(s.products.reduce((sum, p) => sum + p.qty, 0)),
+          defect_total: round(s.products.reduce((sum, p) => sum + p.defect_qty, 0)),
+          closed_at: s.closed_at ?? null,
+        }),
+      );
+
+    const page = query.page ?? 1;
+    const size = query.page_size ?? 50;
+    return {
+      ok: true,
+      total: items.length,
+      page,
+      page_size: size,
+      items: items.slice((page - 1) * size, page * size),
+    };
   }
 
   async getShift(shiftId: Id): Promise<Shift> {

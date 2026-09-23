@@ -166,6 +166,9 @@ export function Workspace() {
                   {opening === 2 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Открыть 2 смену
                 </Button>
+                <Button size="sm" variant="ghost" onClick={() => router.push("/w/shifts")}>
+                  История
+                </Button>
               </div>
             </CardContent>
           </Card>

@@ -157,7 +157,7 @@ export function ShiftScreen({ shiftId }: { shiftId: string }) {
       <WorkersSection context={context} shift={shift} disabled={closed} />
       <OutputsSection context={context} shift={shift} disabled={closed} />
       <ProductsSection context={context} shift={shift} disabled={closed} />
-      <MaterialsSection context={context} shift={shift} />
+      <MaterialsSection context={context} shift={shift} closed={closed} />
       <CloseSection
         shift={shift}
         disabled={closed}
@@ -509,15 +509,50 @@ function ProductsSection({
 function MaterialsSection({
   context,
   shift,
+  closed,
 }: {
   context: WorkshopContext;
   shift: ReturnType<typeof useShift>;
+  closed: boolean;
 }) {
   // Считаем по подтверждённому итогу, а пока его нет, по подсказке из выработки.
   const basis =
     shift.state.products.length > 0 ? shift.state.products : suggestProducts(shift.state.outputs);
   const needs = useMemo(() => calcMaterials(basis, context), [basis, context]);
   const shortage = needs.filter((n) => n.short > 0);
+
+  // У закрытой смены материалы уже списаны, сравнивать с остатком нечего:
+  // показываем то, что ушло в 1С.
+  if (closed) {
+    const written = shift.state.materials;
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Материалы</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          {written.length === 0 ? (
+            <p className="text-muted-foreground">Материалы по этой смене не списывались.</p>
+          ) : (
+            <>
+              {written.map((m) => {
+                const info = context.materials.find((x) => x.id === m.item_id);
+                return (
+                  <div key={m.item_id} className="flex items-center justify-between gap-4">
+                    <span className="truncate">{info?.name ?? m.item_id}</span>
+                    <span className="shrink-0 tabular-nums">
+                      {m.qty} {info?.unit ?? ""}
+                    </span>
+                  </div>
+                );
+              })}
+              <p className="text-xs text-muted-foreground">Списано при закрытии смены.</p>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (needs.length === 0) {
     return (

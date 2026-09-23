@@ -44,7 +44,7 @@ const WORKSHOPS: WorkshopRef[] = [
   { id: "w-cut", code: "00-000005", name: "Крой", warehouse: { id: "s-cut", name: "Материалы для кроя" } },
   { id: "w-sew", code: "00-000006", name: "Швейка", warehouse: { id: "s-sew", name: "Швейное производство" } },
   { id: "w-assy", code: "00-000007", name: "Обшив", warehouse: { id: "s-assy", name: "Склад Обшив" } },
-  { id: "w-glu", code: "00-000008", name: "Клеевой", warehouse: { id: "s-glu", name: "Клеевой участок" } },
+  { id: "w-glu", code: "00-000008", name: "Клеевая", warehouse: { id: "s-glu", name: "Склад Клеевая" } },
   { id: "w-mark", code: "00-000009", name: "Маркировка", warehouse: { id: "s-mark", name: "Склад Маркировка" } },
   { id: "w-ship", code: "00-000011", name: "Склад ГП", warehouse: { id: "s-ship", name: "Готовая продукция" } },
 ];
@@ -152,7 +152,7 @@ const CATALOG: Record<Id, WorkshopData> = {
       { id: "wt-glue", code: "ВР-035", name: "Проклейка и лейбл", unit: "пар", is_downtime: false },
       idle("glu"),
     ],
-    // Клеевой получает полуфабрикат с Литья, клеит лейблы.
+    // Клеевая получает полуфабрикат с Литья, клеит лейблы.
     products: [product("i-glued", "205-к", [{ item_id: "i-galosh", qty_per_unit: 1 }])],
   },
   "w-mark": {

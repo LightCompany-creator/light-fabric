@@ -1,16 +1,24 @@
 // Заглушка 1С по разделу 6 контракта: данные в памяти, те же ответы и те же ошибки.
 // Нужна, пока dev-база Арсена не опубликована: на ней разрабатываются все экраны.
-// Специально воспроизводит неприятные случаи, а не только счастливый путь:
-// нехватка остатка при закрытии смены, конфликт версий, сброс подтверждений при правке.
+//
+// Демо-данные повторяют реальную цепочку фабрики: Литьё делает галоши, Швейка носки,
+// Обшив шьёт из того и другого, Маркировка упаковывает. Покупное сырьё есть только
+// в начале цепочки, дальше всё движется перемещениями между цехами.
+//
+// Специально воспроизводит и неприятные случаи: нехватку остатка, конфликт версий,
+// сброс подтверждений при правке перемещения.
 
 import type { Api1C } from "./api";
 import { Api1CError } from "./client";
 import type {
   ConfirmSide,
+  Employee1C,
   Id,
+  Material1C,
   Me,
   NewTransfer,
   Page,
+  Product1C,
   Shift,
   ShiftHead,
   ShiftState,
@@ -19,6 +27,7 @@ import type {
   Transfer,
   TransferHead,
   TransfersQuery,
+  WorkType,
   WorkshopContext,
   WorkshopRef,
 } from "./types";
@@ -26,47 +35,125 @@ import type {
 const uid = () => crypto.randomUUID();
 const today = () => new Date().toISOString().slice(0, 10);
 const now = () => new Date().toISOString().slice(0, 19);
+const round = (n: number) => Math.round(n * 1000) / 1000;
+
+// ---------- справочники ----------
 
 const WORKSHOPS: WorkshopRef[] = [
-  { id: "w-lit", code: "00-000004", name: "Литейка ЭВА", warehouse: { id: "s-lit", name: "Литейный ЦЕХ ЭВА" } },
+  { id: "w-lit", code: "00-000004", name: "Литьё", warehouse: { id: "s-lit", name: "Литейный ЦЕХ ЭВА" } },
+  { id: "w-sew", code: "00-000006", name: "Швейка", warehouse: { id: "s-sew", name: "Швейное производство" } },
+  { id: "w-assy", code: "00-000007", name: "Обшив", warehouse: { id: "s-assy", name: "Склад Обшив" } },
   { id: "w-mark", code: "00-000009", name: "Маркировка", warehouse: { id: "s-mark", name: "Склад Маркировка" } },
   { id: "w-ship", code: "00-000011", name: "Склад ГП", warehouse: { id: "s-ship", name: "Готовая продукция" } },
 ];
 
-const EMPLOYEES = [
-  { id: "e-1", code: "0000056", name: "Работник Л-01", position: "Литейщик", default_work_type_id: "wt-cast6" },
-  { id: "e-2", code: "0000057", name: "Работник Л-02", position: "Литейщик", default_work_type_id: "wt-cast4" },
-  { id: "e-3", code: "0000058", name: "Работник Л-03", position: "Упаковщик", default_work_type_id: null },
-];
+/** Единый справочник номенклатуры: и покупное сырьё, и полуфабрикаты, и готовое. */
+const ITEMS: Record<Id, { code: string; name: string; unit: string }> = {
+  "i-eva": { code: "00-00000501", name: "Пластикат ЭВА чёрный", unit: "кг" },
+  "i-cloth": { code: "00-00000502", name: "Ткань подкладочная", unit: "м" },
+  "i-galosh": { code: "00-00001001", name: "Галоша ЭВА 112", unit: "пар" },
+  "i-sock": { code: "00-00001002", name: "Носок утеплённый 112", unit: "пар" },
+  "i-boot": { code: "00-00001234", name: "Сапоги женские ЭВА с манжетой", unit: "пар" },
+  "i-boot-packed": { code: "00-00001235", name: "Сапоги 112 упакованные", unit: "пар" },
+};
 
-const WORK_TYPES = [
-  { id: "wt-cast6", code: "ВР-006", name: "Литьё 6-парка", unit: "пар", is_downtime: false },
-  { id: "wt-cast4", code: "ВР-004", name: "Литьё 4-парка", unit: "пар", is_downtime: false },
-  { id: "wt-pack", code: "ВР-010", name: "Упаковка", unit: "пар", is_downtime: false },
-  { id: "wt-idle", code: "ВР-099", name: "Простой", unit: "ч", is_downtime: true },
-];
+const item = (id: Id) => ITEMS[id] ?? { code: "", name: id, unit: "" };
 
-const PRODUCTS = [
-  {
-    id: "p-112", code: "00-00001234", article: "112/н", name: "Сапоги женские ЭВА с манжетой",
-    unit: "пар", spec: [{ item_id: "m-eva", qty_per_unit: 0.42 }],
+type WorkshopData = {
+  employees: Employee1C[];
+  work_types: WorkType[];
+  products: Product1C[];
+};
+
+const idle = (code: string): WorkType => ({
+  id: `wt-idle-${code}`,
+  code: "ВР-099",
+  name: "Простой",
+  unit: "ч",
+  is_downtime: true,
+});
+
+const product = (
+  itemId: Id,
+  article: string,
+  spec: { item_id: Id; qty_per_unit: number }[],
+): Product1C => ({
+  id: itemId,
+  code: item(itemId).code,
+  article,
+  name: item(itemId).name,
+  unit: item(itemId).unit,
+  spec,
+});
+
+const CATALOG: Record<Id, WorkshopData> = {
+  "w-lit": {
+    employees: [
+      { id: "e-lit-1", code: "0000056", name: "Работник Л-01", position: "Литейщик", default_work_type_id: "wt-cast6" },
+      { id: "e-lit-2", code: "0000057", name: "Работник Л-02", position: "Литейщик", default_work_type_id: "wt-cast4" },
+      { id: "e-lit-3", code: "0000058", name: "Работник Л-03", position: "Литейщик", default_work_type_id: null },
+    ],
+    work_types: [
+      { id: "wt-cast6", code: "ВР-006", name: "Литьё 6-парка", unit: "пар", is_downtime: false },
+      { id: "wt-cast4", code: "ВР-004", name: "Литьё 4-парка", unit: "пар", is_downtime: false },
+      idle("lit"),
+    ],
+    products: [product("i-galosh", "112-г", [{ item_id: "i-eva", qty_per_unit: 0.42 }])],
   },
-  {
-    id: "p-137", code: "00-00001235", article: "137", name: "Обувь мужская, туфли купальные",
-    unit: "пар", spec: [{ item_id: "m-eva", qty_per_unit: 0.18 }],
+  "w-sew": {
+    employees: [
+      { id: "e-sew-1", code: "0000071", name: "Работник Ш-01", position: "Швея", default_work_type_id: "wt-sew" },
+      { id: "e-sew-2", code: "0000072", name: "Работник Ш-02", position: "Швея", default_work_type_id: "wt-sew" },
+    ],
+    work_types: [
+      { id: "wt-sew", code: "ВР-020", name: "Пошив носка", unit: "пар", is_downtime: false },
+      idle("sew"),
+    ],
+    products: [product("i-sock", "112-н", [{ item_id: "i-cloth", qty_per_unit: 0.35 }])],
   },
-];
+  "w-assy": {
+    employees: [
+      { id: "e-assy-1", code: "0000081", name: "Работник О-01", position: "Обшивщик", default_work_type_id: "wt-assy" },
+      { id: "e-assy-2", code: "0000082", name: "Работник О-02", position: "Обшивщик", default_work_type_id: "wt-assy" },
+    ],
+    work_types: [
+      { id: "wt-assy", code: "ВР-030", name: "Обшив сапога", unit: "пар", is_downtime: false },
+      idle("assy"),
+    ],
+    // Сырьё Обшива это продукция соседей: галоши из Литья и носки из Швейки.
+    products: [
+      product("i-boot", "112/н", [
+        { item_id: "i-galosh", qty_per_unit: 1 },
+        { item_id: "i-sock", qty_per_unit: 1 },
+      ]),
+    ],
+  },
+  "w-mark": {
+    employees: [
+      { id: "e-mark-1", code: "0000091", name: "Работник М-01", position: "Упаковщик", default_work_type_id: "wt-pack" },
+    ],
+    work_types: [
+      { id: "wt-pack", code: "ВР-010", name: "Упаковка", unit: "пар", is_downtime: false },
+      idle("mark"),
+    ],
+    products: [product("i-boot-packed", "112/у", [{ item_id: "i-boot", qty_per_unit: 1 }])],
+  },
+  "w-ship": {
+    employees: [
+      { id: "e-ship-1", code: "0000101", name: "Работник С-01", position: "Кладовщик", default_work_type_id: null },
+    ],
+    work_types: [idle("ship")],
+    products: [],
+  },
+};
 
-const MATERIALS = [
-  { id: "m-eva", code: "00-00000501", name: "Пластикат ЭВА чёрный", unit: "кг" },
-  { id: "m-dye", code: "00-00000502", name: "Краситель", unit: "кг" },
-];
-
-/** Остатки по складам цехов: item_id → количество. */
+/** Остатки складов цехов: покупное сырьё лежит только в начале цепочки. */
 const stock: Record<Id, Record<Id, number>> = {
-  "w-lit": { "m-eva": 1250.5, "m-dye": 18, "p-112": 640, "p-137": 120 },
-  "w-mark": { "p-112": 80 },
-  "w-ship": {},
+  "w-lit": { "i-eva": 1250.5, "i-galosh": 320 },
+  "w-sew": { "i-cloth": 900, "i-sock": 210 },
+  "w-assy": { "i-galosh": 40, "i-sock": 40 },
+  "w-mark": { "i-boot": 60 },
+  "w-ship": { "i-boot-packed": 500 },
 };
 
 const shifts = new Map<Id, Shift>();
@@ -74,9 +161,11 @@ const transfers = new Map<Id, Transfer>();
 const idempotency = new Map<string, unknown>();
 let docNo = 123;
 
+// ---------- память между перезагрузками ----------
+
 // Настоящая 1С помнит документы между запусками, поэтому и заглушка должна:
 // иначе после каждой перезагрузки страницы смена пропадает и проверить ничего нельзя.
-const PERSIST_KEY = "lf.1c.mock";
+const PERSIST_KEY = "lf.1c.mock.v2";
 let restored = false;
 
 function persist(): void {
@@ -116,8 +205,33 @@ function restore(): void {
   }
 }
 
+// ---------- вспомогательное ----------
+
 function bump(version: string): string {
   return String(Number(version || "0") + 1);
+}
+
+function findProduct(productId: Id): Product1C | undefined {
+  for (const data of Object.values(CATALOG)) {
+    const found = data.products.find((p) => p.id === productId);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+/** Материалы цеха: комплектующие его спецификаций плюс всё, что лежит на складе. */
+function materialsFor(workshopId: Id): Material1C[] {
+  const ids = new Set<Id>();
+  for (const p of CATALOG[workshopId]?.products ?? []) {
+    for (const line of p.spec) ids.add(line.item_id);
+  }
+  for (const id of Object.keys(stock[workshopId] ?? {})) ids.add(id);
+  return Array.from(ids).map((id) => ({
+    id,
+    code: item(id).code,
+    name: item(id).name,
+    unit: item(id).unit,
+  }));
 }
 
 /** Сколько позиции занято в неподтверждённых исходящих перемещениях цеха. */
@@ -134,13 +248,16 @@ function reservedFor(workshopId: Id, itemId: Id): number {
 
 function stockLines(workshopId: Id): StockLine[] {
   const own = stock[workshopId] ?? {};
-  const nameOf = (id: Id) =>
-    PRODUCTS.find((p) => p.id === id)?.name ?? MATERIALS.find((m) => m.id === id)?.name ?? id;
-  const unitOf = (id: Id) =>
-    PRODUCTS.find((p) => p.id === id)?.unit ?? MATERIALS.find((m) => m.id === id)?.unit ?? "";
   return Object.entries(own).map(([item_id, qty]) => {
     const reserved = reservedFor(workshopId, item_id);
-    return { item_id, name: nameOf(item_id), unit: unitOf(item_id), qty, reserved, available: qty - reserved };
+    return {
+      item_id,
+      name: item(item_id).name,
+      unit: item(item_id).unit,
+      qty: round(qty),
+      reserved: round(reserved),
+      available: round(qty - reserved),
+    };
   });
 }
 
@@ -156,12 +273,26 @@ function checkVersion(current: string, sent: string | undefined, doc: unknown) {
   }
 }
 
+function shortageError(shortage: { item_id: Id; available: number; required: number }[]): never {
+  const first = shortage[0];
+  throw new Api1CError(
+    "insufficient_stock",
+    `Недостаточно остатка: ${item(first.item_id).name}, доступно ${round(first.available)}, требуется ${round(first.required)}`,
+    422,
+    shortage.map((s) => ({ ...s, item_name: item(s.item_id).name })),
+  );
+}
+
+type ShiftWithWorkshop = Shift & { workshop_id?: Id };
+
+// ---------- клиент ----------
+
 export type Api1CMockOptions = {
   /** Задержка ответа, чтобы на экранах было видно загрузку. */
   latencyMs?: number;
   isAdmin?: boolean;
   userName?: string;
-  /** Цеха пользователя. По умолчанию Литейка и Маркировка. */
+  /** Цеха пользователя. По умолчанию все: так удобнее проверять обе стороны передачи. */
   workshopIds?: Id[];
 };
 
@@ -173,7 +304,7 @@ export class Api1CMock implements Api1C {
       latencyMs: options.latencyMs ?? 120,
       isAdmin: options.isAdmin ?? false,
       userName: options.userName ?? "Размела",
-      workshopIds: options.workshopIds ?? ["w-lit", "w-mark"],
+      workshopIds: options.workshopIds ?? WORKSHOPS.map((w) => w.id),
     };
     restore();
   }
@@ -200,19 +331,28 @@ export class Api1CMock implements Api1C {
   async workshopContext(workshopId: Id): Promise<WorkshopContext> {
     await this.wait();
     const workshop = WORKSHOPS.find((w) => w.id === workshopId);
-    if (!workshop) throw new Api1CError("forbidden", "Нет доступа к цеху", 403);
+    const data = CATALOG[workshopId];
+    if (!workshop || !data) throw new Api1CError("forbidden", "Нет доступа к цеху", 403);
+
     return {
       ok: true,
       workshop,
       organization: { id: "org-1", name: "Хачатуров Арайр Владимирович ИП" },
-      employees: EMPLOYEES,
-      work_types: WORK_TYPES,
-      products: PRODUCTS,
-      materials: MATERIALS,
+      employees: data.employees,
+      work_types: data.work_types,
+      products: data.products,
+      materials: materialsFor(workshopId),
       stock: stockLines(workshopId),
       open_shifts: Array.from(shifts.values())
-        .filter((s) => s.status === "open")
-        .map(({ id, number, date, shift_no, status, version }) => ({ id, number, date, shift_no, status, version })),
+        .filter((s) => s.status === "open" && (s as ShiftWithWorkshop).workshop_id === workshopId)
+        .map(({ id, number, date, shift_no, status, version }) => ({
+          id,
+          number,
+          date,
+          shift_no,
+          status,
+          version,
+        })),
       transfer_targets: WORKSHOPS.filter((w) => w.id !== workshopId),
       pending_incoming_transfers: Array.from(transfers.values()).filter(
         (t) => t.to.workshop_id === workshopId && t.status === "open",
@@ -230,6 +370,7 @@ export class Api1CMock implements Api1C {
   async listShifts(query: ShiftsQuery): Promise<Page<ShiftHead>> {
     await this.wait();
     const items = Array.from(shifts.values())
+      .filter((s) => (s as ShiftWithWorkshop).workshop_id === query.workshop)
       .filter((s) => (query.status && query.status !== "all" ? s.status === query.status : true))
       .sort((a, b) => b.date.localeCompare(a.date));
     return { ok: true, total: items.length, page: 1, page_size: items.length || 1, items };
@@ -243,11 +384,15 @@ export class Api1CMock implements Api1C {
   async openShift(workshopId: Id, date: string, shiftNo: 1 | 2): Promise<Shift> {
     await this.wait();
     const existing = Array.from(shifts.values()).find(
-      (s) => s.status === "open" && s.date === date && s.shift_no === shiftNo,
+      (s) =>
+        s.status === "open" &&
+        s.date === date &&
+        s.shift_no === shiftNo &&
+        (s as ShiftWithWorkshop).workshop_id === workshopId,
     );
     if (existing) return structuredClone(existing);
 
-    const shift: Shift = {
+    const shift: ShiftWithWorkshop = {
       id: uid(),
       number: `ЛФ-${String(++docNo).padStart(6, "0")}`,
       date: date || today(),
@@ -263,9 +408,9 @@ export class Api1CMock implements Api1C {
       products: [],
       materials: [],
       production_report: null,
+      // Заглушка держит цех прямо в документе: в 1С его знает сам документ.
+      workshop_id: workshopId,
     };
-    // Заглушка держит цех прямо в документе: в 1С его знает сам документ.
-    (shift as Shift & { workshop_id?: Id }).workshop_id = workshopId;
     shifts.set(shift.id, shift);
     persist();
     return structuredClone(shift);
@@ -288,8 +433,9 @@ export class Api1CMock implements Api1C {
     const cached = idempotency.get(opts.idempotencyKey);
     if (cached) return cached as { ok: true; shift: Shift; warnings?: string[] };
 
-    const shift = requireShift(shiftId);
+    const shift = requireShift(shiftId) as ShiftWithWorkshop;
     checkVersion(shift.version, opts.version, structuredClone(shift));
+    const workshopId = shift.workshop_id ?? "w-lit";
 
     // Материалы: переданные по факту или расчёт по спецификации, как это сделает 1С.
     const warnings: string[] = [];
@@ -297,47 +443,42 @@ export class Api1CMock implements Api1C {
     if (materials.length === 0) {
       const need = new Map<Id, number>();
       for (const p of shift.products) {
-        const spec = PRODUCTS.find((x) => x.id === p.product_id)?.spec ?? [];
-        for (const line of spec) {
+        for (const line of findProduct(p.product_id)?.spec ?? []) {
           need.set(line.item_id, (need.get(line.item_id) ?? 0) + line.qty_per_unit * p.qty);
         }
       }
-      materials = Array.from(need.entries()).map(([item_id, qty]) => ({ item_id, qty: Math.round(qty * 1000) / 1000 }));
+      materials = Array.from(need.entries()).map(([item_id, qty]) => ({ item_id, qty: round(qty) }));
       if (materials.length) warnings.push(`Материалы заполнены по спецификации: ${materials.length} позиции`);
     }
 
-    // Контроль отрицательных остатков сырьевых складов: тот же отказ, что даст 1С.
-    const workshopId = (shift as Shift & { workshop_id?: Id }).workshop_id ?? "w-lit";
+    // Контроль отрицательных остатков склада цеха: тот же отказ, что даст 1С.
     const shortage = materials
       .filter((m) => (stock[workshopId]?.[m.item_id] ?? 0) < m.qty)
       .map((m) => ({
         item_id: m.item_id,
-        item_name: MATERIALS.find((x) => x.id === m.item_id)?.name ?? m.item_id,
         available: stock[workshopId]?.[m.item_id] ?? 0,
         required: m.qty,
       }));
-    if (shortage.length) {
-      const first = shortage[0];
-      throw new Api1CError(
-        "insufficient_stock",
-        `Недостаточно остатка: ${first.item_name}, доступно ${first.available}, требуется ${first.required}`,
-        422,
-        shortage,
-      );
-    }
+    if (shortage.length) shortageError(shortage);
 
-    for (const m of materials) stock[workshopId][m.item_id] -= m.qty;
+    for (const m of materials) {
+      stock[workshopId][m.item_id] = round(stock[workshopId][m.item_id] - m.qty);
+    }
     for (const p of shift.products) {
-      stock[workshopId][p.product_id] = (stock[workshopId][p.product_id] ?? 0) + p.qty;
+      stock[workshopId][p.product_id] = round((stock[workshopId][p.product_id] ?? 0) + p.qty);
     }
 
     shift.status = "closed";
     shift.closed_at = now();
     shift.version = bump(shift.version);
     shift.materials = materials;
-    shift.production_report = { id: uid(), number: `0000-${String(++docNo).padStart(6, "0")}`, date: shift.date };
+    shift.production_report = {
+      id: uid(),
+      number: `0000-${String(++docNo).padStart(6, "0")}`,
+      date: shift.date,
+    };
 
-    const result = { ok: true as const, shift: structuredClone(shift), warnings };
+    const result = { ok: true as const, shift: structuredClone(shift) as Shift, warnings };
     idempotency.set(opts.idempotencyKey, result);
     persist();
     return result;
@@ -345,7 +486,9 @@ export class Api1CMock implements Api1C {
 
   async reopenShift(shiftId: Id, reason: string) {
     await this.wait();
-    if (!this.opts.isAdmin) throw new Api1CError("forbidden", "Переоткрыть смену может только администратор", 403);
+    if (!this.opts.isAdmin) {
+      throw new Api1CError("forbidden", "Переоткрыть смену может только администратор", 403);
+    }
     const shift = requireShift(shiftId);
     // В 1С причина уходит в документ, здесь просто дописываем к комментарию.
     if (reason) shift.comment = shift.comment ? `${shift.comment}. ${reason}` : reason;
@@ -368,19 +511,22 @@ export class Api1CMock implements Api1C {
         return t.from.workshop_id === query.workshop || t.to.workshop_id === query.workshop;
       })
       .filter((t) => (query.status && query.status !== "all" ? t.status === query.status : true))
-      .map((t): TransferHead => ({
-        id: t.id,
-        number: t.number,
-        date: t.date,
-        from: t.from,
-        to: t.to,
-        status: t.status,
-        sender_confirmed: t.sender_confirmed,
-        receiver_confirmed: t.receiver_confirmed,
-        version: t.version,
-        lines_count: t.lines.length,
-        qty_total: t.lines.reduce((sum, line) => sum + line.qty, 0),
-      }));
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .map(
+        (t): TransferHead => ({
+          id: t.id,
+          number: t.number,
+          date: t.date,
+          from: t.from,
+          to: t.to,
+          status: t.status,
+          sender_confirmed: t.sender_confirmed,
+          receiver_confirmed: t.receiver_confirmed,
+          version: t.version,
+          lines_count: t.lines.length,
+          qty_total: round(t.lines.reduce((sum, line) => sum + line.qty, 0)),
+        }),
+      );
     return { ok: true, total: items.length, page: 1, page_size: items.length || 1, items };
   }
 
@@ -391,6 +537,7 @@ export class Api1CMock implements Api1C {
     return structuredClone(doc);
   }
 
+  /** Доступный остаток отправителя: остаток минус занятое другими открытыми документами. */
   private checkAvailable(fromWorkshop: Id, lines: NewTransfer["lines"], ignoreTransferId?: Id) {
     const shortage = lines
       .map((line) => {
@@ -402,21 +549,12 @@ export class Api1CMock implements Api1C {
         }
         return { item_id: line.item_id, available: qty - reserved, required: line.qty };
       })
-      .filter((x) => x.required > x.available)
-      .map((x) => ({
-        ...x,
-        item_name:
-          PRODUCTS.find((p) => p.id === x.item_id)?.name ?? MATERIALS.find((m) => m.id === x.item_id)?.name ?? x.item_id,
-      }));
-    if (shortage.length) {
-      const first = shortage[0];
-      throw new Api1CError(
-        "insufficient_stock",
-        `Недостаточно остатка: ${first.item_name}, доступно ${first.available}, требуется ${first.required}`,
-        422,
-        shortage,
-      );
-    }
+      .filter((x) => x.required > x.available);
+    if (shortage.length) shortageError(shortage);
+  }
+
+  private withNames(lines: NewTransfer["lines"]) {
+    return lines.map((l) => ({ ...l, name: item(l.item_id).name, unit: item(l.item_id).unit }));
   }
 
   async createTransfer(doc: NewTransfer, idempotencyKey: string): Promise<Transfer> {
@@ -424,10 +562,11 @@ export class Api1CMock implements Api1C {
     const cached = idempotency.get(idempotencyKey);
     if (cached) return cached as Transfer;
 
-    this.checkAvailable(doc.from_workshop_id, doc.lines);
     const from = WORKSHOPS.find((w) => w.id === doc.from_workshop_id);
     const to = WORKSHOPS.find((w) => w.id === doc.to_workshop_id);
     if (!from || !to) throw new Api1CError("validation", "Неизвестный цех", 400);
+    if (doc.lines.length === 0) throw new Api1CError("validation", "Нет строк для передачи", 400);
+    this.checkAvailable(doc.from_workshop_id, doc.lines);
 
     const transfer: Transfer = {
       id: uid(),
@@ -440,11 +579,7 @@ export class Api1CMock implements Api1C {
       receiver_confirmed: null,
       version: "1",
       comment: doc.comment ?? "",
-      lines: doc.lines.map((l) => ({
-        ...l,
-        name: PRODUCTS.find((p) => p.id === l.item_id)?.name ?? MATERIALS.find((m) => m.id === l.item_id)?.name,
-        unit: PRODUCTS.find((p) => p.id === l.item_id)?.unit ?? MATERIALS.find((m) => m.id === l.item_id)?.unit,
-      })),
+      lines: this.withNames(doc.lines),
     };
     transfers.set(transfer.id, transfer);
     idempotency.set(idempotencyKey, transfer);
@@ -458,17 +593,15 @@ export class Api1CMock implements Api1C {
     version?: string,
   ): Promise<Transfer> {
     await this.wait();
-    const doc = await this.getTransfer(transferId);
-    const live = transfers.get(transferId)!;
-    if (live.status === "posted") throw new Api1CError("state", "Документ проведён, правка запрещена", 409);
-    checkVersion(live.version, version, doc);
+    const live = transfers.get(transferId);
+    if (!live) throw new Api1CError("not_found", "Перемещение не найдено", 404);
+    if (live.status === "posted") {
+      throw new Api1CError("state", "Документ проведён, правка запрещена", 409);
+    }
+    checkVersion(live.version, version, structuredClone(live));
     this.checkAvailable(live.from.workshop_id, patch.lines, transferId);
 
-    live.lines = patch.lines.map((l) => ({
-      ...l,
-      name: PRODUCTS.find((p) => p.id === l.item_id)?.name ?? MATERIALS.find((m) => m.id === l.item_id)?.name,
-      unit: PRODUCTS.find((p) => p.id === l.item_id)?.unit ?? MATERIALS.find((m) => m.id === l.item_id)?.unit,
-    }));
+    live.lines = this.withNames(patch.lines);
     if (patch.comment !== undefined) live.comment = patch.comment;
     // Правка любой стороной сбрасывает оба подтверждения.
     live.sender_confirmed = null;
@@ -478,10 +611,14 @@ export class Api1CMock implements Api1C {
     return structuredClone(live);
   }
 
-  async confirmTransfer(transferId: Id, opts: { version?: string; side?: ConfirmSide } = {}): Promise<Transfer> {
+  async confirmTransfer(
+    transferId: Id,
+    opts: { version?: string; side?: ConfirmSide } = {},
+  ): Promise<Transfer> {
     await this.wait();
     const live = transfers.get(transferId);
     if (!live) throw new Api1CError("not_found", "Перемещение не найдено", 404);
+    if (live.status === "posted") throw new Api1CError("state", "Документ уже проведён", 409);
     checkVersion(live.version, opts.version, structuredClone(live));
 
     const side: ConfirmSide = opts.side ?? (live.sender_confirmed ? "receiver" : "sender");
@@ -493,8 +630,12 @@ export class Api1CMock implements Api1C {
       // Оба подтверждения: 1С проводит документ, остаток уходит получателю.
       this.checkAvailable(live.from.workshop_id, live.lines, transferId);
       for (const line of live.lines) {
-        stock[live.from.workshop_id][line.item_id] -= line.qty;
-        stock[live.to.workshop_id][line.item_id] = (stock[live.to.workshop_id][line.item_id] ?? 0) + line.qty;
+        stock[live.from.workshop_id][line.item_id] = round(
+          (stock[live.from.workshop_id][line.item_id] ?? 0) - line.qty,
+        );
+        stock[live.to.workshop_id][line.item_id] = round(
+          (stock[live.to.workshop_id][line.item_id] ?? 0) + line.qty,
+        );
       }
       live.status = "posted";
     }
@@ -507,7 +648,9 @@ export class Api1CMock implements Api1C {
     await this.wait();
     const live = transfers.get(transferId);
     if (!live) throw new Api1CError("not_found", "Перемещение не найдено", 404);
-    if (live.status === "posted") throw new Api1CError("state", "Проведённый документ удалить нельзя", 409);
+    if (live.status === "posted") {
+      throw new Api1CError("state", "Проведённый документ удалить нельзя", 409);
+    }
     transfers.delete(transferId);
     persist();
     return { ok: true as const };

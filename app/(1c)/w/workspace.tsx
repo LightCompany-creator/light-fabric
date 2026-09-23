@@ -170,16 +170,30 @@ export function Workspace() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className={context.pending_incoming_transfers > 0 ? "border-primary" : undefined}>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">
-                Остатки склада
+                Перемещения
                 {context.pending_incoming_transfers > 0 ? (
                   <Badge className="ml-2">
-                    входящих перемещений: {context.pending_incoming_transfers}
+                    вас ждут: {context.pending_incoming_transfers}
                   </Badge>
                 ) : null}
               </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" onClick={() => router.push("/w/transfers")}>
+                Входящие и исходящие
+              </Button>
+              <Button size="sm" onClick={() => router.push("/w/transfers/new")}>
+                Передать в другой цех
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Остатки склада</CardTitle>
             </CardHeader>
             <CardContent className="space-y-1 text-sm">
               {context.stock.length === 0 ? (

@@ -9,9 +9,21 @@ const PROTECTED_PREFIXES = [
   "/sync",
 ];
 
+/**
+ * Цеховое приложение работает напрямую с 1С и о Supabase не знает.
+ * Пропускаем его мимо проверки сессии: вход там по учётной записи 1С,
+ * а на сервере фабрики никакого Supabase не будет.
+ */
+const API_1C_PREFIXES = ["/enter", "/w"];
+
 export async function middleware(request: NextRequest) {
-  const { response, user } = await updateSession(request);
   const { pathname } = request.nextUrl;
+
+  if (API_1C_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+    return NextResponse.next();
+  }
+
+  const { response, user } = await updateSession(request);
 
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
   if (isProtected && !user) {

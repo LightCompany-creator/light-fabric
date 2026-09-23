@@ -196,6 +196,8 @@ function seedHistory(): void {
     { workshop: "w-lit", date: day(2), shiftNo: 1, product: "i-galosh", qty: 580, defect: 9 },
     { workshop: "w-sew", date: day(1), shiftNo: 1, product: "i-sock", qty: 300, defect: 2 },
     { workshop: "w-assy", date: day(2), shiftNo: 1, product: "i-boot", qty: 120, defect: 1 },
+    // Смена прошлого месяца: месяц уже закрыт, тронуть её нельзя.
+    { workshop: "w-lit", date: day(35), shiftNo: 1, product: "i-galosh", qty: 700, defect: 15 },
   ];
 
   for (const row of past) {
@@ -317,6 +319,22 @@ function stockLines(workshopId: Id): StockLine[] {
       available: round(qty - reserved),
     };
   });
+}
+
+/**
+ * Месяц в 1С закрывают раз в месяц, после того как всё проверено.
+ * Пока он открыт, администратор может переоткрыть смену и поправить.
+ * После закрытия 1С не даст ни распровести, ни изменить.
+ */
+function assertPeriodOpen(date: string): void {
+  const firstOfCurrentMonth = `${new Date().toISOString().slice(0, 7)}-01`;
+  if (date < firstOfCurrentMonth) {
+    throw new Api1CError(
+      "period_closed",
+      `Месяц закрыт в 1С, смену за ${date} изменить нельзя`,
+      422,
+    );
+  }
 }
 
 function requireShift(id: Id): Shift {
@@ -518,6 +536,7 @@ export class Api1CMock implements Api1C {
 
     const shift = requireShift(shiftId) as ShiftWithWorkshop;
     checkVersion(shift.version, opts.version, structuredClone(shift));
+    assertPeriodOpen(shift.date);
     const workshopId = shift.workshop_id ?? "w-lit";
 
     // Материалы: переданные по факту или расчёт по спецификации, как это сделает 1С.
@@ -574,6 +593,7 @@ export class Api1CMock implements Api1C {
     }
     const shift = requireShift(shiftId) as ShiftWithWorkshop;
     if (shift.status !== "closed") throw new Api1CError("state", "Смена и так открыта", 409);
+    assertPeriodOpen(shift.date);
     const workshopId = shift.workshop_id ?? "w-lit";
 
     // 1С распроводит отчёт производства, то есть отменяет движения. Если продукцию

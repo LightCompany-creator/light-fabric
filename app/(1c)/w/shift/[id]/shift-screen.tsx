@@ -23,6 +23,63 @@ import type { ShiftOutput, ShiftProduct, WorkshopContext } from "@/lib/api1c";
 const selectClass =
   "h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring";
 
+/** Подсказка по итогу выпуска: сумма выработки в разрезе продукции. */
+function suggestProducts(outputs: ShiftOutput[]): ShiftProduct[] {
+  const acc = new Map<string, ShiftProduct>();
+  for (const line of outputs) {
+    if (!line.product_id) continue;
+    const found = acc.get(line.product_id) ?? {
+      product_id: line.product_id,
+      qty: 0,
+      defect_qty: 0,
+    };
+    found.qty += line.qty;
+    found.defect_qty += line.defect_qty;
+    acc.set(line.product_id, found);
+  }
+  return Array.from(acc.values());
+}
+
+type MaterialNeed = {
+  item_id: string;
+  name: string;
+  unit: string;
+  required: number;
+  available: number;
+  short: number;
+};
+
+/**
+ * Потребность в материалах по основной спецификации против остатка склада цеха.
+ * Считаем заранее, чтобы нехватка всплывала во время работы, а не отказом 1С
+ * в момент закрытия смены.
+ */
+function calcMaterials(products: ShiftProduct[], ctx: WorkshopContext): MaterialNeed[] {
+  const need = new Map<string, number>();
+  for (const p of products) {
+    const spec = ctx.products.find((x) => x.id === p.product_id)?.spec ?? [];
+    for (const line of spec) {
+      need.set(line.item_id, (need.get(line.item_id) ?? 0) + line.qty_per_unit * p.qty);
+    }
+  }
+  const round = (n: number) => Math.round(n * 1000) / 1000;
+
+  return Array.from(need.entries()).map(([item_id, raw]) => {
+    const required = round(raw);
+    const stock = ctx.stock.find((s) => s.item_id === item_id);
+    const material = ctx.materials.find((m) => m.id === item_id);
+    const available = stock?.available ?? 0;
+    return {
+      item_id,
+      name: material?.name ?? stock?.name ?? item_id,
+      unit: material?.unit ?? stock?.unit ?? "",
+      required,
+      available,
+      short: required > available ? round(required - available) : 0,
+    };
+  });
+}
+
 export function ShiftScreen({ shiftId }: { shiftId: string }) {
   const { workshop } = useApi1C();
   const { context } = useWorkshopContext(workshop?.id);
@@ -100,6 +157,7 @@ export function ShiftScreen({ shiftId }: { shiftId: string }) {
       <WorkersSection context={context} shift={shift} disabled={closed} />
       <OutputsSection context={context} shift={shift} disabled={closed} />
       <ProductsSection context={context} shift={shift} disabled={closed} />
+      <MaterialsSection context={context} shift={shift} />
       <CloseSection
         shift={shift}
         disabled={closed}
@@ -374,23 +432,9 @@ function ProductsSection({
   shift: ReturnType<typeof useShift>;
   disabled: boolean;
 }) {
-  // Подсказка по выработке. Итог по операциям не равен числу готовых пар,
-  // поэтому цифру подтверждает человек (вопрос В-3 контракта).
-  const suggestion = useMemo(() => {
-    const acc = new Map<string, ShiftProduct>();
-    for (const line of shift.state.outputs) {
-      if (!line.product_id) continue;
-      const found = acc.get(line.product_id) ?? {
-        product_id: line.product_id,
-        qty: 0,
-        defect_qty: 0,
-      };
-      found.qty += line.qty;
-      found.defect_qty += line.defect_qty;
-      acc.set(line.product_id, found);
-    }
-    return Array.from(acc.values());
-  }, [shift.state.outputs]);
+  // Итог по операциям не равен числу готовых пар, поэтому цифру подтверждает
+  // человек (вопрос В-3 контракта), а приложение только подсказывает.
+  const suggestion = useMemo(() => suggestProducts(shift.state.outputs), [shift.state.outputs]);
 
   function setQty(productId: string, value: string, field: "qty" | "defect_qty") {
     const amount = Number(value.replace(",", ".")) || 0;
@@ -455,9 +499,76 @@ function ProductsSection({
           </>
         )}
 
-        <p className="text-xs text-muted-foreground">
-          Материалы списывает 1С по спецификации на выпуск. Отдельно вводить не нужно.
-        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------- материалы по норме ----------
+
+function MaterialsSection({
+  context,
+  shift,
+}: {
+  context: WorkshopContext;
+  shift: ReturnType<typeof useShift>;
+}) {
+  // Считаем по подтверждённому итогу, а пока его нет, по подсказке из выработки.
+  const basis =
+    shift.state.products.length > 0 ? shift.state.products : suggestProducts(shift.state.outputs);
+  const needs = useMemo(() => calcMaterials(basis, context), [basis, context]);
+  const shortage = needs.filter((n) => n.short > 0);
+
+  if (needs.length === 0) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Материалы по норме</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          Появятся, когда будет выпуск. Списывает их 1С по спецификации, вводить вручную не нужно.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className={shortage.length ? "border-destructive" : undefined}>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Материалы по норме</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        {needs.map((n) => (
+          <div key={n.item_id} className="flex items-center justify-between gap-4">
+            <span className="truncate">{n.name}</span>
+            <span className="shrink-0 tabular-nums">
+              <span className={n.short > 0 ? "font-medium text-destructive" : ""}>
+                {n.required} {n.unit}
+              </span>
+              <span className="text-muted-foreground"> из {n.available}</span>
+            </span>
+          </div>
+        ))}
+
+        {shortage.length > 0 ? (
+          <div className="flex gap-2 rounded-md bg-destructive/10 p-3 text-destructive">
+            <TriangleAlert className="h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-medium">
+                Не хватает сырья:{" "}
+                {shortage.map((n) => `${n.name} на ${n.short} ${n.unit}`).join(", ")}
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                1С не проведёт отчёт, пока материал не поступит на склад цеха.
+                Передачу сырья оформляет бухгалтерия в 1С.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Сырья на складе хватает. Спишет его 1С при закрытии смены, вводить вручную не нужно.
+          </p>
+        )}
       </CardContent>
     </Card>
   );

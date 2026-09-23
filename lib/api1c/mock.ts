@@ -41,8 +41,10 @@ const round = (n: number) => Math.round(n * 1000) / 1000;
 
 const WORKSHOPS: WorkshopRef[] = [
   { id: "w-lit", code: "00-000004", name: "Литьё", warehouse: { id: "s-lit", name: "Литейный ЦЕХ ЭВА" } },
+  { id: "w-cut", code: "00-000005", name: "Крой", warehouse: { id: "s-cut", name: "Материалы для кроя" } },
   { id: "w-sew", code: "00-000006", name: "Швейка", warehouse: { id: "s-sew", name: "Швейное производство" } },
   { id: "w-assy", code: "00-000007", name: "Обшив", warehouse: { id: "s-assy", name: "Склад Обшив" } },
+  { id: "w-glu", code: "00-000008", name: "Клеевой", warehouse: { id: "s-glu", name: "Клеевой участок" } },
   { id: "w-mark", code: "00-000009", name: "Маркировка", warehouse: { id: "s-mark", name: "Склад Маркировка" } },
   { id: "w-ship", code: "00-000011", name: "Склад ГП", warehouse: { id: "s-ship", name: "Готовая продукция" } },
 ];
@@ -55,6 +57,8 @@ const ITEMS: Record<Id, { code: string; name: string; unit: string }> = {
   "i-sock": { code: "00-00001002", name: "Носок утеплённый 112", unit: "пар" },
   "i-boot": { code: "00-00001234", name: "Сапоги женские ЭВА с манжетой", unit: "пар" },
   "i-boot-packed": { code: "00-00001235", name: "Сапоги 112 упакованные", unit: "пар" },
+  "i-blank": { code: "00-00001003", name: "Заготовка верха 112", unit: "пар" },
+  "i-glued": { code: "00-00001236", name: "Кроксы 205 с лейблом", unit: "пар" },
 };
 
 const item = (id: Id) => ITEMS[id] ?? { code: "", name: id, unit: "" };
@@ -100,6 +104,17 @@ const CATALOG: Record<Id, WorkshopData> = {
     ],
     products: [product("i-galosh", "112-г", [{ item_id: "i-eva", qty_per_unit: 0.42 }])],
   },
+  "w-cut": {
+    employees: [
+      { id: "e-cut-1", code: "0000061", name: "Работник К-01", position: "Раскройщик", default_work_type_id: "wt-cut" },
+      { id: "e-cut-2", code: "0000062", name: "Работник К-02", position: "Раскройщик", default_work_type_id: "wt-cut" },
+    ],
+    work_types: [
+      { id: "wt-cut", code: "ВР-015", name: "Раскрой верха", unit: "пар", is_downtime: false },
+      idle("cut"),
+    ],
+    products: [product("i-blank", "112-з", [{ item_id: "i-cloth", qty_per_unit: 0.35 }])],
+  },
   "w-sew": {
     employees: [
       { id: "e-sew-1", code: "0000071", name: "Работник Ш-01", position: "Швея", default_work_type_id: "wt-sew" },
@@ -109,7 +124,8 @@ const CATALOG: Record<Id, WorkshopData> = {
       { id: "wt-sew", code: "ВР-020", name: "Пошив носка", unit: "пар", is_downtime: false },
       idle("sew"),
     ],
-    products: [product("i-sock", "112-н", [{ item_id: "i-cloth", qty_per_unit: 0.35 }])],
+    // Швейка шьёт из заготовок Кроя, а не из ткани напрямую.
+    products: [product("i-sock", "112-н", [{ item_id: "i-blank", qty_per_unit: 1 }])],
   },
   "w-assy": {
     employees: [
@@ -128,6 +144,17 @@ const CATALOG: Record<Id, WorkshopData> = {
       ]),
     ],
   },
+  "w-glu": {
+    employees: [
+      { id: "e-glu-1", code: "0000085", name: "Работник Г-01", position: "Клеевар", default_work_type_id: "wt-glue" },
+    ],
+    work_types: [
+      { id: "wt-glue", code: "ВР-035", name: "Проклейка и лейбл", unit: "пар", is_downtime: false },
+      idle("glu"),
+    ],
+    // Клеевой получает полуфабрикат с Литья, клеит лейблы.
+    products: [product("i-glued", "205-к", [{ item_id: "i-galosh", qty_per_unit: 1 }])],
+  },
   "w-mark": {
     employees: [
       { id: "e-mark-1", code: "0000091", name: "Работник М-01", position: "Упаковщик", default_work_type_id: "wt-pack" },
@@ -137,6 +164,8 @@ const CATALOG: Record<Id, WorkshopData> = {
       idle("mark"),
     ],
     products: [product("i-boot-packed", "112/у", [{ item_id: "i-boot", qty_per_unit: 1 }])],
+    // Упаковка принимает и сапоги от Обшива, и клеевую обувь: остатки обоих видов
+    // лежат на её складе, поэтому попадут в материалы через остаток.
   },
   "w-ship": {
     employees: [
@@ -150,9 +179,11 @@ const CATALOG: Record<Id, WorkshopData> = {
 /** Остатки складов цехов: покупное сырьё лежит только в начале цепочки. */
 const stock: Record<Id, Record<Id, number>> = {
   "w-lit": { "i-eva": 1250.5, "i-galosh": 320 },
-  "w-sew": { "i-cloth": 900, "i-sock": 210 },
+  "w-cut": { "i-cloth": 900, "i-blank": 180 },
+  "w-sew": { "i-blank": 120, "i-sock": 210 },
   "w-assy": { "i-galosh": 40, "i-sock": 40 },
-  "w-mark": { "i-boot": 60 },
+  "w-glu": { "i-galosh": 90, "i-glued": 55 },
+  "w-mark": { "i-boot": 60, "i-glued": 30 },
   "w-ship": { "i-boot-packed": 500 },
 };
 
@@ -165,7 +196,7 @@ let docNo = 123;
 
 // Настоящая 1С помнит документы между запусками, поэтому и заглушка должна:
 // иначе после каждой перезагрузки страницы смена пропадает и проверить ничего нельзя.
-const PERSIST_KEY = "lf.1c.mock.v2";
+const PERSIST_KEY = "lf.1c.mock.v3";
 const OFFLINE_KEY = "lf.1c.mock.offline";
 let restored = false;
 
@@ -195,7 +226,9 @@ function seedHistory(): void {
     { workshop: "w-lit", date: day(1), shiftNo: 1, product: "i-galosh", qty: 640, defect: 12 },
     { workshop: "w-lit", date: day(1), shiftNo: 2, product: "i-galosh", qty: 410, defect: 4 },
     { workshop: "w-lit", date: day(2), shiftNo: 1, product: "i-galosh", qty: 580, defect: 9 },
+    { workshop: "w-cut", date: day(1), shiftNo: 1, product: "i-blank", qty: 340, defect: 5 },
     { workshop: "w-sew", date: day(1), shiftNo: 1, product: "i-sock", qty: 300, defect: 2 },
+    { workshop: "w-glu", date: day(1), shiftNo: 1, product: "i-glued", qty: 150, defect: 3 },
     { workshop: "w-assy", date: day(2), shiftNo: 1, product: "i-boot", qty: 120, defect: 1 },
     // Смена прошлого месяца: месяц уже закрыт, тронуть её нельзя.
     { workshop: "w-lit", date: day(35), shiftNo: 1, product: "i-galosh", qty: 700, defect: 15 },

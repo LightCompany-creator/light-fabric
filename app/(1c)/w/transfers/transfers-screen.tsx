@@ -117,7 +117,7 @@ export function TransfersScreen() {
           {items.map((doc) => {
             const state = transferState(doc, workshop?.id);
             return (
-              <Link key={doc.id} href={`/w/transfers/${doc.id}`} className="block">
+              <Link key={doc.id} href={`/w/transfer?id=${doc.id}`} className="block">
                 <Card className={state.mine ? "border-primary" : undefined}>
                   <CardContent className="flex items-center justify-between gap-3 py-4 text-sm">
                     <div className="min-w-0">

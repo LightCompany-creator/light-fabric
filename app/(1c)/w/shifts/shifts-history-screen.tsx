@@ -133,7 +133,7 @@ export function ShiftsHistoryScreen() {
 
           <div className="space-y-2">
             {items.map((s) => (
-              <Link key={s.id} href={`/w/shift/${s.id}`} className="block">
+              <Link key={s.id} href={`/w/shift?id=${s.id}`} className="block">
                 <Card>
                   <CardContent className="flex items-center justify-between gap-3 py-4 text-sm">
                     <div className="min-w-0">

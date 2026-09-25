@@ -31,7 +31,7 @@ export function Workspace() {
         const shift = await api.openShift(workshop.id, localDate(), shiftNo);
         // Вернувшись на рабочее место, человек должен увидеть новую смену, а не кэш до неё.
         invalidateWorkshopContext(workshop.id);
-        router.push(`/w/shift/${shift.id}`);
+        router.push(`/w/shift?id=${shift.id}`);
       } catch (e) {
         setError(describeError(e));
       } finally {
@@ -141,7 +141,7 @@ export function Workspace() {
                     </span>
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary">открыта</Badge>
-                      <Button size="sm" variant="outline" onClick={() => router.push(`/w/shift/${s.id}`)}>
+                      <Button size="sm" variant="outline" onClick={() => router.push(`/w/shift?id=${s.id}`)}>
                         Продолжить
                       </Button>
                     </div>

@@ -439,6 +439,11 @@ function ProductsSection({
   // человек (вопрос В-3 контракта), а приложение только подсказывает.
   const suggestion = useMemo(() => suggestProducts(shift.state.outputs), [shift.state.outputs]);
 
+  // Пока человек печатает, поле показывает ровно то, что он набрал: иначе «12.»
+  // превращалось бы в «12» на каждой букве, и дробь ввести было нельзя.
+  const [typing, setTyping] = useState<Record<string, string>>({});
+  const typingKey = (productId: string, field: string) => `${productId}:${field}`;
+
   function setQty(productId: string, value: string, field: "qty" | "defect_qty") {
     const amount = Number(value.replace(",", ".")) || 0;
     // Первая правка подтверждает всю подсказку целиком, а не одну строку:
@@ -478,8 +483,18 @@ function ProductsSection({
                     <Input
                       inputMode="decimal"
                       disabled={disabled}
-                      value={String(row.qty)}
-                      onChange={(e) => setQty(row.product_id, e.target.value, "qty")}
+                      value={typing[typingKey(row.product_id, "qty")] ?? String(row.qty)}
+                      onChange={(e) => {
+                        setTyping((t) => ({ ...t, [typingKey(row.product_id, "qty")]: e.target.value }));
+                        setQty(row.product_id, e.target.value, "qty");
+                      }}
+                      onBlur={() =>
+                        setTyping((t) => {
+                          const next = { ...t };
+                          delete next[typingKey(row.product_id, "qty")];
+                          return next;
+                        })
+                      }
                     />
                   </div>
                   <div className="space-y-1">
@@ -487,8 +502,21 @@ function ProductsSection({
                     <Input
                       inputMode="decimal"
                       disabled={disabled}
-                      value={String(row.defect_qty)}
-                      onChange={(e) => setQty(row.product_id, e.target.value, "defect_qty")}
+                      value={typing[typingKey(row.product_id, "defect_qty")] ?? String(row.defect_qty)}
+                      onChange={(e) => {
+                        setTyping((t) => ({
+                          ...t,
+                          [typingKey(row.product_id, "defect_qty")]: e.target.value,
+                        }));
+                        setQty(row.product_id, e.target.value, "defect_qty");
+                      }}
+                      onBlur={() =>
+                        setTyping((t) => {
+                          const next = { ...t };
+                          delete next[typingKey(row.product_id, "defect_qty")];
+                          return next;
+                        })
+                      }
                     />
                   </div>
                 </div>

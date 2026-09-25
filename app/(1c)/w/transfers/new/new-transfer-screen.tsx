@@ -64,7 +64,7 @@ export function NewTransferScreen() {
         newIdempotencyKey(),
       );
       invalidateWorkshopContext(workshop.id);
-      router.replace(`/w/transfers/${doc.id}`);
+      router.replace(`/w/transfer?id=${doc.id}`);
     } catch (e) {
       setError(describeError(e));
     } finally {

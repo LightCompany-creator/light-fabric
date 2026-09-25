@@ -7,6 +7,11 @@
 // безопасен, поэтому в цеху можно писать в любом порядке и сколько угодно раз:
 // последнее состояние побеждает. Пока связи нет, всё копится в черновике
 // на планшете и уходит, когда сеть вернётся.
+//
+// Всё, что нужно отправке, лежит в ref, а не в state: версия документа,
+// последнее состояние, признак правок. Иначе таймер, поставленный до ответа 1С,
+// уносил бы устаревшую версию, и 1С отвечала бы «изменено с другого устройства»
+// на правки с того же самого планшета.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Api1CError, Api1COfflineError, newIdempotencyKey } from "./index";
@@ -83,7 +88,7 @@ export type UseShift = {
 };
 
 export function useShift(shiftId: string): UseShift {
-  const { api } = useApi1C();
+  const { api, status } = useApi1C();
   const [shift, setShift] = useState<Shift | null>(null);
   const [state, setState] = useState<ShiftState>(EMPTY_STATE);
   const [version, setVersion] = useState<string | undefined>();
@@ -91,12 +96,33 @@ export function useShift(shiftId: string): UseShift {
   const [error, setError] = useState<string | null>(null);
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Последнее состояние документа, всегда совпадает со state. */
   const latest = useRef<ShiftState>(EMPTY_STATE);
+  /** Версия в 1С на момент отправки, а не на момент постановки таймера. */
+  const versionRef = useRef<string | undefined>(undefined);
   const saving = useRef(false);
+  /** Были правки после начала последней отправки: их нужно дослать. */
+  const dirty = useRef(false);
+  /** Конфликт не разрешён: автоотправка стоит, пока человек не выберет версию. */
+  const blocked = useRef(false);
+  const pushRef = useRef<() => Promise<void>>(async () => {});
+
+  const commitVersion = useCallback((next: string | undefined) => {
+    versionRef.current = next;
+    setVersion(next);
+  }, []);
+
+  const applyState = useCallback((next: ShiftState) => {
+    latest.current = next;
+    setState(next);
+  }, []);
 
   // ---------- первая загрузка ----------
 
   useEffect(() => {
+    // Пока сеанс не восстановлен, клиент без учётных данных: ждём, иначе первый
+    // запрос уйдёт впустую и мигнёт ошибкой до настоящей загрузки.
+    if (status !== "ready") return;
     let cancelled = false;
 
     async function load() {
@@ -107,21 +133,19 @@ export function useShift(shiftId: string): UseShift {
 
         const draft = readDraft(shiftId);
         // Черновик на планшете новее того, что успело уйти в 1С: продолжаем с него.
-        const next = draft ?? pickState(doc);
         setShift(doc);
-        setState(next);
-        latest.current = next;
-        setVersion(doc.version);
+        applyState(draft ?? pickState(doc));
+        commitVersion(doc.version);
+        dirty.current = Boolean(draft);
         setSync(draft ? "pending" : "saved");
       } catch (e) {
         if (cancelled) return;
-        const draft = readDraft(shiftId);
         if (e instanceof Api1COfflineError) {
           // Связи нет: продолжаем с того, что лежит на планшете. Если черновика ещё
           // нет, начинаем с чистого документа: всё уйдёт в 1С, когда сеть вернётся.
-          const next = draft ?? EMPTY_STATE;
-          setState(next);
-          latest.current = next;
+          const draft = readDraft(shiftId);
+          applyState(draft ?? EMPTY_STATE);
+          dirty.current = Boolean(draft);
           setSync("offline");
         } else {
           setError(describeError(e));
@@ -134,25 +158,39 @@ export function useShift(shiftId: string): UseShift {
     return () => {
       cancelled = true;
     };
-  }, [api, shiftId]);
+  }, [api, shiftId, status, applyState, commitVersion]);
 
   // ---------- отправка ----------
 
+  const schedule = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => void pushRef.current(), SAVE_DELAY_MS);
+  }, []);
+
   const push = useCallback(async () => {
-    if (saving.current) return;
+    // Уже летит запрос: правки отмечены в dirty и уйдут следующей отправкой.
+    if (saving.current || blocked.current) return;
     saving.current = true;
+    dirty.current = false;
     setSync("saving");
     try {
-      const newVersion = await api.saveShift(shiftId, latest.current, version);
-      setVersion(newVersion);
-      dropDraft(shiftId);
+      const newVersion = await api.saveShift(shiftId, latest.current, versionRef.current);
+      commitVersion(newVersion);
       setError(null);
-      setSync("saved");
+      if (dirty.current) {
+        // Пока запрос летел, человек продолжал вводить: черновик уже новее,
+        // его нельзя удалять, а статус остаётся «не сохранено».
+        setSync("pending");
+      } else {
+        dropDraft(shiftId);
+        setSync("saved");
+      }
     } catch (e) {
       writeDraft(shiftId, latest.current);
       if (e instanceof Api1COfflineError) {
         setSync("offline");
       } else if (e instanceof Api1CError && e.code === "conflict") {
+        blocked.current = true;
         setSync("conflict");
         setError("Смену изменили с другого устройства. Выберите, какую версию оставить.");
       } else {
@@ -161,43 +199,41 @@ export function useShift(shiftId: string): UseShift {
       }
     } finally {
       saving.current = false;
+      if (dirty.current && !blocked.current) schedule();
     }
-  }, [api, shiftId, version]);
+  }, [api, shiftId, schedule, commitVersion]);
 
-  const schedule = useCallback(() => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => void push(), SAVE_DELAY_MS);
+  useEffect(() => {
+    pushRef.current = push;
   }, [push]);
 
   const update = useCallback(
     (patch: Partial<ShiftState>) => {
-      setState((prev) => {
-        const next = { ...prev, ...patch };
-        latest.current = next;
-        writeDraft(shiftId, next);
-        return next;
-      });
+      const next = { ...latest.current, ...patch };
+      applyState(next);
+      writeDraft(shiftId, next);
+      dirty.current = true;
       setSync((prev) => (prev === "conflict" ? prev : "pending"));
       schedule();
     },
-    [schedule, shiftId],
+    [applyState, schedule, shiftId],
   );
 
   const saveNow = useCallback(async () => {
     if (timer.current) clearTimeout(timer.current);
-    await push();
-  }, [push]);
+    await pushRef.current();
+  }, []);
 
   // Повторная попытка, когда сеть вернулась.
   useEffect(() => {
     function onOnline() {
-      if (latest.current && (sync === "offline" || sync === "pending")) void push();
+      if (sync === "offline" || sync === "pending") void pushRef.current();
     }
     window.addEventListener("online", onOnline);
     return () => window.removeEventListener("online", onOnline);
-  }, [push, sync]);
+  }, [sync]);
 
-  // Не теряем несохранённое при уходе со страницы.
+  // Таймер не должен пережить экран.
   useEffect(() => {
     return () => {
       if (timer.current) clearTimeout(timer.current);
@@ -209,33 +245,33 @@ export function useShift(shiftId: string): UseShift {
   const close = useCallback(
     async (comment?: string) => {
       if (timer.current) clearTimeout(timer.current);
-      await push();
+      await pushRef.current();
       const result = await api.closeShift(shiftId, {
-        version: undefined,
+        version: versionRef.current,
         idempotencyKey: newIdempotencyKey(),
         comment,
       });
       dropDraft(shiftId);
+      dirty.current = false;
       setShift(result.shift);
-      setVersion(result.shift.version);
+      commitVersion(result.shift.version);
       setSync("saved");
       return result.shift;
     },
-    [api, push, shiftId],
+    [api, shiftId, commitVersion],
   );
 
   const reopen = useCallback(
     async (reason: string) => {
       const result = await api.reopenShift(shiftId, reason);
-      const next = pickState(result.shift);
       setShift(result.shift);
-      setState(next);
-      latest.current = next;
-      setVersion(result.shift.version);
+      applyState(pickState(result.shift));
+      commitVersion(result.shift.version);
+      dirty.current = false;
       setError(null);
       setSync("saved");
     },
-    [api, shiftId],
+    [api, shiftId, applyState, commitVersion],
   );
 
   // ---------- конфликты ----------
@@ -243,27 +279,33 @@ export function useShift(shiftId: string): UseShift {
   const resolveKeepMine = useCallback(async () => {
     const fresh = await api.getShift(shiftId);
     setShift(fresh);
-    setVersion(fresh.version);
-    setSync("pending");
+    commitVersion(fresh.version);
     setError(null);
-    await api.saveShift(shiftId, latest.current, fresh.version).then((v) => {
-      setVersion(v);
+    setSync("saving");
+    try {
+      const saved = await api.saveShift(shiftId, latest.current, fresh.version);
+      commitVersion(saved);
       dropDraft(shiftId);
+      dirty.current = false;
+      blocked.current = false;
       setSync("saved");
-    });
-  }, [api, shiftId]);
+    } catch (e) {
+      setError(describeError(e));
+      setSync("error");
+    }
+  }, [api, shiftId, commitVersion]);
 
   const resolveTakeTheirs = useCallback(async () => {
     const fresh = await api.getShift(shiftId);
-    const next = pickState(fresh);
     setShift(fresh);
-    setState(next);
-    latest.current = next;
-    setVersion(fresh.version);
+    applyState(pickState(fresh));
+    commitVersion(fresh.version);
     dropDraft(shiftId);
+    dirty.current = false;
+    blocked.current = false;
     setError(null);
     setSync("saved");
-  }, [api, shiftId]);
+  }, [api, shiftId, applyState, commitVersion]);
 
   return {
     shift,

@@ -10,6 +10,7 @@
 
 import type { Api1C } from "./api";
 import { Api1CError, Api1COfflineError } from "./client";
+import { daysAgo, localDate } from "./dates";
 import type {
   ConfirmSide,
   Employee1C,
@@ -33,7 +34,7 @@ import type {
 } from "./types";
 
 const uid = () => crypto.randomUUID();
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => localDate();
 const now = () => new Date().toISOString().slice(0, 19);
 const round = (n: number) => Math.round(n * 1000) / 1000;
 
@@ -54,6 +55,7 @@ const ITEMS: Record<Id, { code: string; name: string; unit: string }> = {
   "i-eva": { code: "00-00000501", name: "Пластикат ЭВА чёрный", unit: "кг" },
   "i-cloth": { code: "00-00000502", name: "Ткань подкладочная", unit: "м" },
   "i-galosh": { code: "00-00001001", name: "Галоша ЭВА 112", unit: "пар" },
+  "i-galosh-137": { code: "00-00001004", name: "Галоша ЭВА 137 купальная", unit: "пар" },
   "i-sock": { code: "00-00001002", name: "Носок утеплённый 112", unit: "пар" },
   "i-boot": { code: "00-00001234", name: "Сапоги женские ЭВА с манжетой", unit: "пар" },
   "i-boot-packed": { code: "00-00001235", name: "Сапоги 112 упакованные", unit: "пар" },
@@ -102,7 +104,11 @@ const CATALOG: Record<Id, WorkshopData> = {
       { id: "wt-cast4", code: "ВР-004", name: "Литьё 4-парка", unit: "пар", is_downtime: false },
       idle("lit"),
     ],
-    products: [product("i-galosh", "112-г", [{ item_id: "i-eva", qty_per_unit: 0.42 }])],
+    // Две позиции, чтобы итог выпуска по нескольким продуктам было на чем проверять.
+    products: [
+      product("i-galosh", "112-г", [{ item_id: "i-eva", qty_per_unit: 0.42 }]),
+      product("i-galosh-137", "137-г", [{ item_id: "i-eva", qty_per_unit: 0.18 }]),
+    ],
   },
   "w-cut": {
     employees: [
@@ -198,6 +204,7 @@ let docNo = 123;
 // иначе после каждой перезагрузки страницы смена пропадает и проверить ничего нельзя.
 const PERSIST_KEY = "lf.1c.mock.v3";
 const OFFLINE_KEY = "lf.1c.mock.offline";
+const LATENCY_KEY = "lf.1c.mock.latency";
 let restored = false;
 
 function persist(): void {
@@ -219,8 +226,7 @@ function persist(): void {
 /** Несколько закрытых смен за прошлые дни, чтобы истории было что показывать. */
 function seedHistory(): void {
   if (shifts.size > 0) return;
-  const day = (back: number) =>
-    new Date(Date.now() - back * 86_400_000).toISOString().slice(0, 10);
+  const day = daysAgo;
 
   const past: { workshop: Id; date: string; shiftNo: 1 | 2; product: Id; qty: number; defect: number }[] = [
     { workshop: "w-lit", date: day(1), shiftNo: 1, product: "i-galosh", qty: 640, defect: 12 },
@@ -282,6 +288,9 @@ function restore(): void {
     const raw = window.localStorage.getItem(PERSIST_KEY);
     if (!raw) {
       seedHistory();
+      // Без сохранения смены истории получали бы новые номера при каждой
+      // перезагрузке, и открытая из истории смена «пропадала» после обновления.
+      persist();
       return;
     }
     const saved = JSON.parse(raw) as {
@@ -420,7 +429,16 @@ export class Api1CMock implements Api1C {
   }
 
   private async wait() {
-    if (this.opts.latencyMs) await new Promise((r) => setTimeout(r, this.opts.latencyMs));
+    // Медленную сеть можно изобразить из консоли планшета:
+    // localStorage.setItem("lf.1c.mock.latency", "2000") — задержка в миллисекундах.
+    let latency = this.opts.latencyMs;
+    try {
+      const forced = Number(window.localStorage.getItem(LATENCY_KEY));
+      if (forced > 0) latency = forced;
+    } catch {
+      /* хранилище недоступно */
+    }
+    if (latency) await new Promise((r) => setTimeout(r, latency));
     // Режим «нет связи» для проверки офлайна: включается из консоли планшета
     // localStorage.setItem("lf.1c.mock.offline", "1")
     try {

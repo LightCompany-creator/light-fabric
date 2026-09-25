@@ -441,12 +441,13 @@ function ProductsSection({
 
   function setQty(productId: string, value: string, field: "qty" | "defect_qty") {
     const amount = Number(value.replace(",", ".")) || 0;
-    const exists = shift.state.products.some((p) => p.product_id === productId);
+    // Первая правка подтверждает всю подсказку целиком, а не одну строку:
+    // иначе остальные позиции выпадали из итога, и в 1С уходил неполный выпуск.
+    const base = shift.state.products.length > 0 ? shift.state.products : suggestion;
+    const exists = base.some((p) => p.product_id === productId);
     const products = exists
-      ? shift.state.products.map((p) =>
-          p.product_id === productId ? { ...p, [field]: amount } : p,
-        )
-      : [...shift.state.products, { product_id: productId, qty: 0, defect_qty: 0, [field]: amount }];
+      ? base.map((p) => (p.product_id === productId ? { ...p, [field]: amount } : p))
+      : [...base, { product_id: productId, qty: 0, defect_qty: 0, [field]: amount }];
     shift.update({ products });
   }
 
@@ -519,8 +520,11 @@ function MaterialsSection({
   closed: boolean;
 }) {
   // Считаем по подтверждённому итогу, а пока его нет, по подсказке из выработки.
-  const basis =
-    shift.state.products.length > 0 ? shift.state.products : suggestProducts(shift.state.outputs);
+  const { products, outputs } = shift.state;
+  const basis = useMemo(
+    () => (products.length > 0 ? products : suggestProducts(outputs)),
+    [products, outputs],
+  );
   const needs = useMemo(() => calcMaterials(basis, context), [basis, context]);
   const shortage = needs.filter((n) => n.short > 0);
 

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { describeError, useApi1C } from "@/lib/api1c/provider";
+import { daysAgo } from "@/lib/api1c";
 import type { ShiftHead } from "@/lib/api1c";
 
 type Period = 7 | 30 | 0;
@@ -22,7 +23,7 @@ const PERIODS: { value: Period; label: string }[] = [
 
 function since(days: Period): string | undefined {
   if (!days) return undefined;
-  return new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
+  return daysAgo(days);
 }
 
 export function ShiftsHistoryScreen() {

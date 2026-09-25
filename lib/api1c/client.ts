@@ -123,8 +123,21 @@ export class Api1CClient implements Api1C {
       clearTimeout(timeout);
     }
 
+    // Шлюз перед 1С (nginx, IIS) при недоступности сервиса отвечает 502/503/504,
+    // и часто HTML-страницей, а не JSON. Для планшета это то же «нет связи».
+    if (response.status === 502 || response.status === 503 || response.status === 504) {
+      throw new Api1COfflineError(`HTTP ${response.status}`);
+    }
+
     const text = await response.text();
-    const payload = text ? (JSON.parse(text) as unknown) : null;
+    let payload: unknown = null;
+    if (text) {
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        payload = null; // не JSON: разбираем ниже по статусу, не падаем на парсере
+      }
+    }
 
     if (!response.ok) {
       const err = (payload as ApiErrorBody | null)?.error;
@@ -134,6 +147,10 @@ export class Api1CClient implements Api1C {
         response.status,
         err?.details,
       );
+    }
+
+    if (text && payload === null) {
+      throw new Api1CError("internal", "1С вернула ответ не в формате JSON", response.status);
     }
 
     return payload as T;

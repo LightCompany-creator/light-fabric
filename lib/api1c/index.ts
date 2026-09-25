@@ -3,13 +3,14 @@
 // поэтому экраны можно писать и проверять до публикации сервиса Арсена.
 
 import type { Api1C } from "./api";
-import { Api1CClient, basicAuthHeader } from "./client";
+import { Api1CClient, Api1CError, basicAuthHeader } from "./client";
 import { Api1CMock } from "./mock";
 
 export type { Api1C } from "./api";
 export * from "./types";
 export { Api1CClient, Api1CError, Api1COfflineError, basicAuthHeader } from "./client";
 export { Api1CMock } from "./mock";
+export { localDate, daysAgo } from "./dates";
 
 export type Credentials = { login: string; password: string };
 
@@ -27,7 +28,17 @@ export function createApi1C(credentials?: Credentials): Api1C {
     const isAdmin = login.includes("админ") || login.includes("admin");
     return new Api1CMock({ isAdmin, userName: isAdmin ? "Администратор" : undefined });
   }
-  if (!credentials) throw new Error("Нужны логин и пароль пользователя 1С");
+  if (!credentials) {
+    // До входа клиент существует, но любой запрос честно отвечает «нужен вход».
+    // Бросать исключение здесь нельзя: провайдер создаёт клиент ещё на экране
+    // логина, и приложение падало бы до того, как человек ввёл пароль.
+    return new Api1CClient({
+      baseUrl,
+      getAuthHeader: () => {
+        throw new Api1CError("forbidden", "Нужен вход по учётной записи 1С", 401);
+      },
+    });
+  }
 
   return new Api1CClient({
     baseUrl,

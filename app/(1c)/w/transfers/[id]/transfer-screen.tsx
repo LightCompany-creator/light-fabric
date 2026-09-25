@@ -25,6 +25,8 @@ export function TransferScreen({ transferId }: { transferId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    // До восстановления сеанса клиент без учётных данных: запрос ушёл бы впустую.
+    if (status !== "ready") return;
     setError(null);
     try {
       const fresh = await api.getTransfer(transferId);
@@ -33,7 +35,7 @@ export function TransferScreen({ transferId }: { transferId: string }) {
     } catch (e) {
       setError(describeError(e));
     }
-  }, [api, transferId]);
+  }, [api, transferId, status]);
 
   useEffect(() => {
     void load();
@@ -80,16 +82,24 @@ export function TransferScreen({ transferId }: { transferId: string }) {
       setDoc(fresh);
     });
 
-  const saveLines = () =>
-    run(async () => {
-      const lines = doc.lines.map((l) => ({
+  const saveLines = () => {
+    // Ноль в строке означает «убрать позицию», а не «передать ноль».
+    const lines = doc.lines
+      .map((l) => ({
         item_id: l.item_id,
         qty: Number((edited[l.item_id] ?? "0").replace(",", ".")) || 0,
-      }));
+      }))
+      .filter((l) => l.qty > 0);
+    if (lines.length === 0) {
+      setError("Передача без позиций не нужна. Чтобы отменить её, удалите документ.");
+      return;
+    }
+    return run(async () => {
       const fresh = await api.updateTransfer(doc.id, { lines }, doc.version);
       setDoc(fresh);
       setEdited(Object.fromEntries(fresh.lines.map((l) => [l.item_id, String(l.qty)])));
     });
+  };
 
   const remove = () =>
     run(async () => {

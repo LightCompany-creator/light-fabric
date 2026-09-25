@@ -11,7 +11,7 @@ import { ArrowLeft, Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { newIdempotencyKey } from "@/lib/api1c";
+import { localDate, newIdempotencyKey } from "@/lib/api1c";
 import { describeError, useApi1C } from "@/lib/api1c/provider";
 import { invalidateWorkshopContext, useWorkshopContext } from "@/lib/api1c/use-workshop-context";
 
@@ -57,7 +57,7 @@ export function NewTransferScreen() {
         {
           from_workshop_id: workshop.id,
           to_workshop_id: targetId,
-          date: new Date().toISOString().slice(0, 10),
+          date: localDate(),
           comment,
           lines,
         },

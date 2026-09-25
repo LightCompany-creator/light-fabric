@@ -10,8 +10,9 @@ import { Loader2, LogOut, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { localDate } from "@/lib/api1c";
 import { describeError, useApi1C } from "@/lib/api1c/provider";
-import { useWorkshopContext } from "@/lib/api1c/use-workshop-context";
+import { invalidateWorkshopContext, useWorkshopContext } from "@/lib/api1c/use-workshop-context";
 
 export function Workspace() {
   const router = useRouter();
@@ -27,7 +28,9 @@ export function Workspace() {
       setOpening(shiftNo);
       setError(null);
       try {
-        const shift = await api.openShift(workshop.id, new Date().toISOString().slice(0, 10), shiftNo);
+        const shift = await api.openShift(workshop.id, localDate(), shiftNo);
+        // Вернувшись на рабочее место, человек должен увидеть новую смену, а не кэш до неё.
+        invalidateWorkshopContext(workshop.id);
         router.push(`/w/shift/${shift.id}`);
       } catch (e) {
         setError(describeError(e));

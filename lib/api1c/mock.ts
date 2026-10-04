@@ -5,13 +5,15 @@
 // Обшив шьёт из того и другого, Маркировка упаковывает. Покупное сырьё есть только
 // в начале цепочки, дальше всё движется перемещениями между цехами.
 //
-// Специально воспроизводит и неприятные случаи: нехватку остатка, конфликт версий,
-// сброс подтверждений при правке перемещения.
+// Специально воспроизводит и неприятные случаи: смену, которая закрылась, но не
+// отразилась в учёте (нехватка остатка, закрытый период), конфликт версий, ошибки
+// ввода списком, сброс подтверждений при правке перемещения. Поведение по контракту v0.2.
 
 import type { Api1C } from "./api";
 import { Api1CError, Api1COfflineError } from "./client";
 import { daysAgo, localDate } from "./dates";
 import type {
+  CloseShiftResult,
   ConfirmSide,
   Employee1C,
   Id,
@@ -21,6 +23,7 @@ import type {
   Page,
   Product1C,
   Shift,
+  ShiftAccounting,
   ShiftHead,
   ShiftState,
   ShiftsQuery,
@@ -28,6 +31,7 @@ import type {
   Transfer,
   TransferHead,
   TransfersQuery,
+  ValidationDetail,
   WorkType,
   WorkshopContext,
   WorkshopRef,
@@ -76,7 +80,7 @@ const idle = (code: string): WorkType => ({
   code: "ВР-099",
   name: "Простой",
   unit: "ч",
-  is_downtime: true,
+  requires_product: false,
 });
 
 const product = (
@@ -100,8 +104,10 @@ const CATALOG: Record<Id, WorkshopData> = {
       { id: "e-lit-3", code: "0000058", name: "Работник Л-03", position: "Литейщик", default_work_type_id: null },
     ],
     work_types: [
-      { id: "wt-cast6", code: "ВР-006", name: "Литьё 6-парка", unit: "пар", is_downtime: false },
-      { id: "wt-cast4", code: "ВР-004", name: "Литьё 4-парка", unit: "пар", is_downtime: false },
+      { id: "wt-cast6", code: "ВР-006", name: "Литьё 6-парка", unit: "пар", requires_product: true },
+      { id: "wt-cast4", code: "ВР-004", name: "Литьё 4-парка", unit: "пар", requires_product: true },
+      // Работа без продукции бывает не только простоем.
+      { id: "wt-clean", code: "ВР-098", name: "Чистка форм", unit: "ч", requires_product: false },
       idle("lit"),
     ],
     // Две позиции, чтобы итог выпуска по нескольким продуктам было на чем проверять.
@@ -116,7 +122,7 @@ const CATALOG: Record<Id, WorkshopData> = {
       { id: "e-cut-2", code: "0000062", name: "Работник К-02", position: "Раскройщик", default_work_type_id: "wt-cut" },
     ],
     work_types: [
-      { id: "wt-cut", code: "ВР-015", name: "Раскрой верха", unit: "пар", is_downtime: false },
+      { id: "wt-cut", code: "ВР-015", name: "Раскрой верха", unit: "пар", requires_product: true },
       idle("cut"),
     ],
     products: [product("i-blank", "112-з", [{ item_id: "i-cloth", qty_per_unit: 0.35 }])],
@@ -127,7 +133,7 @@ const CATALOG: Record<Id, WorkshopData> = {
       { id: "e-sew-2", code: "0000072", name: "Работник Ш-02", position: "Швея", default_work_type_id: "wt-sew" },
     ],
     work_types: [
-      { id: "wt-sew", code: "ВР-020", name: "Пошив носка", unit: "пар", is_downtime: false },
+      { id: "wt-sew", code: "ВР-020", name: "Пошив носка", unit: "пар", requires_product: true },
       idle("sew"),
     ],
     // Швейка шьёт из заготовок Кроя, а не из ткани напрямую.
@@ -139,7 +145,7 @@ const CATALOG: Record<Id, WorkshopData> = {
       { id: "e-assy-2", code: "0000082", name: "Работник О-02", position: "Обшивщик", default_work_type_id: "wt-assy" },
     ],
     work_types: [
-      { id: "wt-assy", code: "ВР-030", name: "Обшив сапога", unit: "пар", is_downtime: false },
+      { id: "wt-assy", code: "ВР-030", name: "Обшив сапога", unit: "пар", requires_product: true },
       idle("assy"),
     ],
     // Сырьё Обшива это продукция соседей: галоши из Литья и носки из Швейки.
@@ -155,7 +161,7 @@ const CATALOG: Record<Id, WorkshopData> = {
       { id: "e-glu-1", code: "0000085", name: "Работник Г-01", position: "Клеевар", default_work_type_id: "wt-glue" },
     ],
     work_types: [
-      { id: "wt-glue", code: "ВР-035", name: "Проклейка и лейбл", unit: "пар", is_downtime: false },
+      { id: "wt-glue", code: "ВР-035", name: "Проклейка и лейбл", unit: "пар", requires_product: true },
       idle("glu"),
     ],
     // Клеевая получает полуфабрикат с Литья, клеит лейблы.
@@ -166,7 +172,7 @@ const CATALOG: Record<Id, WorkshopData> = {
       { id: "e-mark-1", code: "0000091", name: "Работник М-01", position: "Упаковщик", default_work_type_id: "wt-pack" },
     ],
     work_types: [
-      { id: "wt-pack", code: "ВР-010", name: "Упаковка", unit: "пар", is_downtime: false },
+      { id: "wt-pack", code: "ВР-010", name: "Упаковка", unit: "пар", requires_product: true },
       idle("mark"),
     ],
     products: [product("i-boot-packed", "112/у", [{ item_id: "i-boot", qty_per_unit: 1 }])],
@@ -202,7 +208,7 @@ let docNo = 123;
 
 // Настоящая 1С помнит документы между запусками, поэтому и заглушка должна:
 // иначе после каждой перезагрузки страницы смена пропадает и проверить ничего нельзя.
-const PERSIST_KEY = "lf.1c.mock.v3";
+const PERSIST_KEY = "lf.1c.mock.v4";
 const OFFLINE_KEY = "lf.1c.mock.offline";
 const LATENCY_KEY = "lf.1c.mock.latency";
 let restored = false;
@@ -260,12 +266,13 @@ function seedHistory(): void {
       // Как и в жизни: при закрытии 1С списала материалы по спецификации.
       materials: (findProduct(row.product)?.spec ?? []).map((line) => ({
         item_id: line.item_id,
+        product_id: row.product,
         qty: round(line.qty_per_unit * row.qty),
       })),
-      production_report: {
-        id: uid(),
-        number: `0000-${String(++docNo).padStart(6, "0")}`,
-        date: row.date,
+      accounting: {
+        status: "done",
+        message: "",
+        documents: { production_report: newDocument(row.date), payroll: null },
       },
       workshop_id: row.workshop,
     };
@@ -367,17 +374,101 @@ function stockLines(workshopId: Id): StockLine[] {
 /**
  * Месяц в 1С закрывают раз в месяц, после того как всё проверено.
  * Пока он открыт, администратор может переоткрыть смену и поправить.
- * После закрытия 1С не даст ни распровести, ни изменить.
  */
-function assertPeriodOpen(date: string): void {
-  const firstOfCurrentMonth = `${new Date().toISOString().slice(0, 7)}-01`;
-  if (date < firstOfCurrentMonth) {
-    throw new Api1CError(
-      "period_closed",
-      `Месяц закрыт в 1С, смену за ${date} изменить нельзя`,
-      422,
+function isPeriodClosed(date: string): boolean {
+  return date < `${localDate().slice(0, 7)}-01`;
+}
+
+function newDocument(date: string) {
+  return { id: uid(), number: `0000-${String(++docNo).padStart(6, "0")}`, date };
+}
+
+/**
+ * Проверка ввода цеха: единственное, что может не дать закрыть смену.
+ * Как и 1С, собирает все нарушения разом, чтобы человек исправил их за один заход.
+ */
+function validateShift(shift: ShiftWithWorkshop): ValidationDetail[] {
+  const data = CATALOG[shift.workshop_id ?? "w-lit"];
+  const problems: ValidationDetail[] = [];
+  const isEmployee = (id: Id) => data.employees.some((e) => e.id === id);
+  const producedIds = new Set(shift.products.map((p) => p.product_id));
+  const add = (section: string, row: number, field: string, message: string) =>
+    problems.push({ section, row, field, message });
+
+  shift.workers.forEach((w, i) => {
+    if (!isEmployee(w.employee_id)) {
+      add("workers", i + 1, "employee_id", `Состав смены, строка ${i + 1}: сотрудник не из этого цеха`);
+    }
+  });
+  shift.outputs.forEach((o, i) => {
+    const where = `Выработка, строка ${i + 1}`;
+    const workType = data.work_types.find((w) => w.id === o.work_type_id);
+    if (!isEmployee(o.employee_id)) {
+      add("outputs", i + 1, "employee_id", `${where}: сотрудник не из этого цеха`);
+    }
+    if (!workType) {
+      add("outputs", i + 1, "work_type_id", `${where}: вид работ не из этого цеха`);
+    } else if (workType.requires_product && !o.product_id) {
+      add("outputs", i + 1, "product_id", `${where}: не указана продукция`);
+    } else if (o.product_id && !data.products.some((p) => p.id === o.product_id)) {
+      add("outputs", i + 1, "product_id", `${where}: продукция не из этого цеха`);
+    }
+  });
+  shift.materials.forEach((m, i) => {
+    if (!m.product_id || !producedIds.has(m.product_id)) {
+      add("materials", i + 1, "product_id", `Материалы, строка ${i + 1}: не указана продукция смены`);
+    }
+  });
+  return problems;
+}
+
+/**
+ * Второй шаг закрытия: отражение в учёте. Смену он не блокирует: при неудаче
+ * возвращает pending с причиной, остатки при этом не меняются.
+ */
+function reflectInAccounting(shift: ShiftWithWorkshop): ShiftAccounting {
+  const workshopId = shift.workshop_id ?? "w-lit";
+  const pending = (message: string): ShiftAccounting => ({
+    status: "pending",
+    message,
+    documents: { production_report: null, payroll: null },
+  });
+
+  if (isPeriodClosed(shift.date)) {
+    return pending(`Дата смены ${shift.date} попадает в закрытый период`);
+  }
+
+  const need = new Map<Id, number>();
+  for (const m of shift.materials) need.set(m.item_id, (need.get(m.item_id) ?? 0) + m.qty);
+  const needed = Array.from(need.entries());
+  const short = needed.find(([itemId, qty]) => (stock[workshopId]?.[itemId] ?? 0) < qty);
+  if (short) {
+    const [itemId, qty] = short;
+    const have = round(stock[workshopId]?.[itemId] ?? 0);
+    const unit = item(itemId).unit;
+    return pending(
+      `Недостаточно остатка: ${item(itemId).name}, доступно ${have} ${unit}, требуется ${round(qty)} ${unit}`,
     );
   }
+
+  for (const [itemId, qty] of needed) {
+    stock[workshopId][itemId] = round(stock[workshopId][itemId] - qty);
+  }
+  for (const p of shift.products) {
+    stock[workshopId][p.product_id] = round((stock[workshopId][p.product_id] ?? 0) + p.qty);
+  }
+
+  // Строки с продукцией идут в отчёт производства, без продукции в начисление ЗП.
+  const hasProduction = shift.products.length > 0 || shift.outputs.some((o) => o.product_id);
+  const hasUnproductive = shift.outputs.some((o) => !o.product_id);
+  return {
+    status: "done",
+    message: "",
+    documents: {
+      production_report: hasProduction ? newDocument(shift.date) : null,
+      payroll: hasUnproductive ? newDocument(shift.date) : null,
+    },
+  };
 }
 
 function requireShift(id: Id): Shift {
@@ -522,6 +613,7 @@ export class Api1CMock implements Api1C {
           produced_total: round(s.products.reduce((sum, p) => sum + p.qty, 0)),
           defect_total: round(s.products.reduce((sum, p) => sum + p.defect_qty, 0)),
           closed_at: s.closed_at ?? null,
+          accounting_status: s.status === "closed" ? (s.accounting?.status ?? null) : null,
         }),
       );
 
@@ -538,7 +630,18 @@ export class Api1CMock implements Api1C {
 
   async getShift(shiftId: Id): Promise<Shift> {
     await this.wait();
-    return structuredClone(requireShift(shiftId));
+    const shift = requireShift(shiftId) as ShiftWithWorkshop;
+    // В жизни повторное отражение запускает бухгалтер, когда устранил причину.
+    // Заглушка делает это сама при чтении: причина ушла, значит смена отразится.
+    if (shift.status === "closed" && shift.accounting?.status === "pending") {
+      const retried = reflectInAccounting(shift);
+      if (retried.status === "done") {
+        shift.accounting = retried;
+        shift.version = bump(shift.version);
+        persist();
+      }
+    }
+    return structuredClone(shift);
   }
 
   async openShift(workshopId: Id, date: string, shiftNo: 1 | 2): Promise<Shift> {
@@ -567,7 +670,7 @@ export class Api1CMock implements Api1C {
       outputs: [],
       products: [],
       materials: [],
-      production_report: null,
+      accounting: null,
       // Заглушка держит цех прямо в документе: в 1С его знает сам документ.
       workshop_id: workshopId,
     };
@@ -588,99 +691,95 @@ export class Api1CMock implements Api1C {
     return shift.version;
   }
 
-  async closeShift(shiftId: Id, opts: { version?: string; idempotencyKey: string; comment?: string }) {
+  async closeShift(shiftId: Id, opts: { version?: string } = {}): Promise<CloseShiftResult> {
     await this.wait();
-    const cached = idempotency.get(opts.idempotencyKey);
-    if (cached) return cached as { ok: true; shift: Shift; warnings?: string[] };
-
     const shift = requireShift(shiftId) as ShiftWithWorkshop;
+    const brief = () => ({
+      id: shift.id,
+      status: shift.status,
+      closed_at: shift.closed_at,
+      version: shift.version,
+    });
+
+    // Повтор по закрытой смене возвращает её текущее состояние, дубль невозможен.
+    if (shift.status === "closed" && shift.accounting) {
+      return { ok: true, shift: brief(), accounting: structuredClone(shift.accounting) };
+    }
     checkVersion(shift.version, opts.version, structuredClone(shift));
-    assertPeriodOpen(shift.date);
-    const workshopId = shift.workshop_id ?? "w-lit";
 
-    // Материалы: переданные по факту или расчёт по спецификации, как это сделает 1С.
+    // Шаг 1. Закрытие: проверяется только ввод цеха.
+    const problems = validateShift(shift);
+    if (problems.length) {
+      throw new Api1CError("validation", problems[0].message, 400, problems);
+    }
+
+    // Материалы не вводили: 1С заполняет их сама по спецификации, с привязкой к продукции.
     const warnings: string[] = [];
-    let materials = shift.materials;
-    if (materials.length === 0) {
-      const need = new Map<Id, number>();
-      for (const p of shift.products) {
-        for (const line of findProduct(p.product_id)?.spec ?? []) {
-          need.set(line.item_id, (need.get(line.item_id) ?? 0) + line.qty_per_unit * p.qty);
-        }
+    if (shift.materials.length === 0) {
+      shift.materials = shift.products.flatMap((p) =>
+        (findProduct(p.product_id)?.spec ?? []).map((line) => ({
+          item_id: line.item_id,
+          product_id: p.product_id,
+          qty: round(line.qty_per_unit * p.qty),
+        })),
+      );
+      if (shift.materials.length) {
+        warnings.push(`Материалы заполнены по спецификации: ${shift.materials.length} поз.`);
       }
-      materials = Array.from(need.entries()).map(([item_id, qty]) => ({ item_id, qty: round(qty) }));
-      if (materials.length) warnings.push(`Материалы заполнены по спецификации: ${materials.length} позиции`);
-    }
-
-    // Контроль отрицательных остатков склада цеха: тот же отказ, что даст 1С.
-    const shortage = materials
-      .filter((m) => (stock[workshopId]?.[m.item_id] ?? 0) < m.qty)
-      .map((m) => ({
-        item_id: m.item_id,
-        available: stock[workshopId]?.[m.item_id] ?? 0,
-        required: m.qty,
-      }));
-    if (shortage.length) shortageError(shortage);
-
-    for (const m of materials) {
-      stock[workshopId][m.item_id] = round(stock[workshopId][m.item_id] - m.qty);
-    }
-    for (const p of shift.products) {
-      stock[workshopId][p.product_id] = round((stock[workshopId][p.product_id] ?? 0) + p.qty);
     }
 
     shift.status = "closed";
     shift.closed_at = now();
     shift.version = bump(shift.version);
-    shift.materials = materials;
-    shift.production_report = {
-      id: uid(),
-      number: `0000-${String(++docNo).padStart(6, "0")}`,
-      date: shift.date,
-    };
 
-    const result = { ok: true as const, shift: structuredClone(shift) as Shift, warnings };
-    idempotency.set(opts.idempotencyKey, result);
+    // Шаг 2. Отражение в учёте: при неудаче смена всё равно остаётся закрытой.
+    shift.accounting = reflectInAccounting(shift);
+    if (shift.accounting.status === "done") shift.version = bump(shift.version);
+
     persist();
-    return result;
+    return { ok: true, shift: brief(), accounting: structuredClone(shift.accounting), warnings };
   }
 
   async reopenShift(shiftId: Id, reason: string) {
     await this.wait();
     if (!this.opts.isAdmin) {
-      throw new Api1CError("forbidden", "Переоткрыть смену может только администратор", 403);
+      // Как в 1С: отказ платформы по правам на метод сервиса.
+      throw new Api1CError("forbidden", "Недостаточно прав для этого действия", 403);
     }
     const shift = requireShift(shiftId) as ShiftWithWorkshop;
     if (shift.status !== "closed") throw new Api1CError("state", "Смена и так открыта", 409);
-    assertPeriodOpen(shift.date);
-    const workshopId = shift.workshop_id ?? "w-lit";
-
-    // 1С распроводит отчёт производства, то есть отменяет движения. Если продукцию
-    // уже передали дальше, снимать её со склада не с чего, и отмена не пройдёт.
-    const gone = shift.products.filter((p) => (stock[workshopId]?.[p.product_id] ?? 0) < p.qty);
-    if (gone.length) {
+    if (isPeriodClosed(shift.date)) {
+      // Закрытый период при переоткрытии 1С отдаёт как posting_failed со своим текстом.
       throw new Api1CError(
         "posting_failed",
-        `Продукции уже нет на складе цеха: ${item(gone[0].product_id).name}. Отчёт производства не распровести.`,
+        `Изменение запрещено: дата смены ${shift.date} попадает в закрытый период`,
         422,
       );
     }
+    const workshopId = shift.workshop_id ?? "w-lit";
 
-    for (const p of shift.products) {
-      stock[workshopId][p.product_id] = round(stock[workshopId][p.product_id] - p.qty);
-    }
-    for (const m of shift.materials) {
-      stock[workshopId][m.item_id] = round((stock[workshopId][m.item_id] ?? 0) + m.qty);
+    // Если смена была отражена в учёте, 1С отменяет проведение. Остатки при этом
+    // она НЕ проверяет: если продукцию уже передали дальше, склад уйдёт в минус.
+    // Так ведёт себя типовая Бухгалтерия, приложение предупреждает об этом само.
+    if (shift.accounting?.status === "done") {
+      for (const p of shift.products) {
+        stock[workshopId][p.product_id] = round((stock[workshopId][p.product_id] ?? 0) - p.qty);
+      }
+      for (const m of shift.materials) {
+        stock[workshopId][m.item_id] = round((stock[workshopId][m.item_id] ?? 0) + m.qty);
+      }
     }
 
     // В 1С причина уходит в документ, здесь просто дописываем к комментарию.
     if (reason) shift.comment = shift.comment ? `${shift.comment}. ${reason}` : reason;
     shift.status = "open";
     shift.closed_at = null;
-    shift.production_report = null;
+    shift.accounting = null;
+    // Материалы после переоткрытия снова считает 1С: выпуск могут поправить.
+    shift.materials = [];
     shift.version = bump(shift.version);
     persist();
-    return { ok: true as const, shift: structuredClone(shift) };
+    return { ok: true as const, shift: structuredClone(shift) as Shift };
   }
 
   // ---------- перемещения ----------

@@ -64,7 +64,7 @@ export function TransferScreen({ transferId }: { transferId: string }) {
     setError(null);
     try {
       await action();
-      invalidateWorkshopContext(workshop?.id);
+      invalidateWorkshopContext();
     } catch (e) {
       setError(describeError(e));
       await load();

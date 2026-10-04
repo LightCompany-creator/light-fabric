@@ -1,6 +1,6 @@
-// Типы обмена с 1С по контракту «Контракт обмена 1С ↔ LightFabric. Этап 1», v0.1.
+// Типы обмена с 1С по контракту «Контракт обмена 1С ↔ LightFabric. Этап 1», v0.2.
 // Имена полей повторяют контракт один в один, чтобы ответы 1С ложились без переименований.
-// Оригинал: 1С-Арсену/Контракт_1С_LightFabric_этап1.md
+// Оригинал: 1С-Арсену/Контракт_1С_LightFabric_этап1.md + Правки_контракта_v0.2.md
 
 /** GUID ссылки 1С, например "c9ab8ae1-c8b6-11e9-ba09-d48564791284". */
 export type Id = string;
@@ -30,13 +30,21 @@ export type StockShortage = {
   required: number;
 };
 
+/** Одно нарушение в теле запроса (details при validation): 1С отдаёт их все сразу. */
+export type ValidationDetail = {
+  section?: string;
+  row?: number;
+  field?: string;
+  message: string;
+};
+
 export type ApiErrorBody = {
   ok: false;
   error: {
     code: ApiErrorCode;
     message: string;
-    /** При insufficient_stock — список позиций, при conflict — { current }. */
-    details?: StockShortage[] | Record<string, unknown>;
+    /** validation: список нарушений; insufficient_stock: позиции; conflict: { current }. */
+    details?: ValidationDetail[] | StockShortage[] | Record<string, unknown>;
   };
 };
 
@@ -72,8 +80,11 @@ export type WorkType = {
   name: string;
   /** Единица вида работ: «пар», «ч» и т.п. */
   unit: string;
-  /** Признак вида работ «Простой»: количество вводится в часах, продукция не нужна. */
-  is_downtime: boolean;
+  /**
+   * Нужна ли продукция в строке выработки. Без продукции бывает не только простой:
+   * чистка форм, погрузка, уборка. Такие строки 1С оплачивает отдельным документом.
+   */
+  requires_product: boolean;
 };
 
 export type SpecLine = { item_id: Id; qty_per_unit: number };
@@ -120,6 +131,13 @@ export type WorkshopContext = {
 
 export type ShiftStatus = "open" | "closed";
 
+/**
+ * Отражение закрытой смены в учёте. Закрытие и учёт разделены: цех закрывает
+ * смену всегда, если ввод корректен, а нехватку остатка, закрытый период
+ * или отсутствие расценки утром разбирает бухгалтерия.
+ */
+export type AccountingStatus = "done" | "pending";
+
 export type ShiftHead = {
   id: Id;
   number: string;
@@ -132,6 +150,8 @@ export type ShiftHead = {
   produced_total?: number;
   defect_total?: number;
   closed_at?: IsoDateTime | null;
+  /** Только у закрытых смен в списке истории. */
+  accounting_status?: AccountingStatus | null;
 };
 
 /** Состав смены: кто вышел. */
@@ -141,9 +161,9 @@ export type ShiftWorker = { employee_id: Id; work_type_id?: Id | null };
 export type ShiftOutput = {
   employee_id: Id;
   work_type_id: Id;
-  /** null только для видов работ с is_downtime. */
+  /** null для видов работ, у которых requires_product = false. */
   product_id: Id | null;
-  /** Количество в единице вида работ, для простоя — часы. */
+  /** Количество в единице вида работ (unit), для простоя это часы. */
   qty: number;
   defect_qty: number;
   machine?: string;
@@ -154,8 +174,11 @@ export type ShiftOutput = {
 /** Итог выпуска по продукции: вводит начальник цеха, приложение только подсказывает. */
 export type ShiftProduct = { product_id: Id; qty: number; defect_qty: number };
 
-/** Материалы по факту. Пустой список = 1С спишет по спецификации при закрытии. */
-export type ShiftMaterial = { item_id: Id; qty: number };
+/**
+ * Материалы по факту, с привязкой к продукции смены (в 1С это обязательное поле).
+ * Пустой список = 1С заполнит сама по спецификации, продукцию проставит тоже.
+ */
+export type ShiftMaterial = { item_id: Id; product_id: Id; qty: number };
 
 /** Тело PUT /shifts/{id}: полное состояние документа. */
 export type ShiftState = {
@@ -168,14 +191,34 @@ export type ShiftState = {
   materials: ShiftMaterial[];
 };
 
-export type ProductionReportRef = { id: Id; number: string; date: IsoDate };
+export type DocumentRef = { id: Id; number: string; date: IsoDate };
+
+export type ShiftAccounting = {
+  status: AccountingStatus;
+  /** Причина, по которой отражение не прошло. Текст 1С, годится для показа. */
+  message: string;
+  documents: {
+    /** Отчёт производства за смену: строки выработки с продукцией. */
+    production_report: DocumentRef | null;
+    /** Начисление зарплаты за работы без продукции (простой, чистка форм). */
+    payroll: DocumentRef | null;
+  };
+};
 
 export type Shift = ShiftHead &
   ShiftState & {
     created_at?: IsoDateTime;
-    /** Номер созданного отчёта производства за смену, если смена закрыта. */
-    production_report?: ProductionReportRef | null;
+    /** Есть только у закрытой смены. */
+    accounting?: ShiftAccounting | null;
   };
+
+/** Ответ close: шапка приходит краткой, документ целиком отдаёт GET /shifts/{id}. */
+export type CloseShiftResult = {
+  ok: true;
+  shift: Pick<Shift, "id" | "status" | "version"> & Partial<Shift>;
+  accounting: ShiftAccounting;
+  warnings?: string[];
+};
 
 // ---------- перемещения ----------
 

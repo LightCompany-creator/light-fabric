@@ -150,6 +150,9 @@ export function ShiftsHistoryScreen() {
                         {s.produced_total ?? 0}
                         {s.defect_total ? `, брак ${s.defect_total}` : ""}
                       </span>
+                      {s.accounting_status === "pending" ? (
+                        <Badge variant="outline">ждёт учёта</Badge>
+                      ) : null}
                       <Badge variant={s.status === "closed" ? "secondary" : "default"}>
                         {s.status === "closed" ? "закрыта" : "открыта"}
                       </Badge>

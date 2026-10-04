@@ -2,6 +2,10 @@
 
 // Экран смены: состав, выработка, итог выпуска, закрытие.
 // Денег на экране нет: расценки и суммы приложению не отдаются, ЗП считает 1С.
+//
+// Закрытие двухшаговое (контракт v0.2): цех закрывает смену всегда, если ввод
+// корректен, а отражение в учёте идёт следом и цех не блокирует. Поэтому нехватка
+// сырья здесь предупреждение, а «ждёт отражения в учёте» не ошибка цеха.
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -18,7 +22,8 @@ import {
   invalidateWorkshopContext,
   useWorkshopContext,
 } from "@/lib/api1c/use-workshop-context";
-import type { ShiftOutput, ShiftProduct, WorkshopContext } from "@/lib/api1c";
+import { Api1CError } from "@/lib/api1c";
+import type { ShiftOutput, ShiftProduct, ShiftState, WorkshopContext } from "@/lib/api1c";
 
 const selectClass =
   "h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring";
@@ -83,7 +88,10 @@ function calcMaterials(products: ShiftProduct[], ctx: WorkshopContext): Material
 export function ShiftScreen({ shiftId }: { shiftId: string }) {
   const { workshop } = useApi1C();
   const { context } = useWorkshopContext(workshop?.id);
-  const shift = useShift(shiftId);
+  // Версия из кэша цеха нужна, если смену открыли без связи: по ней 1С потом
+  // поймёт, не изменили ли документ, пока планшет был офлайн.
+  const knownVersion = context?.open_shifts.find((s) => s.id === shiftId)?.version;
+  const shift = useShift(shiftId, { knownVersion });
 
   if (shift.sync === "loading" || !context) {
     return (
@@ -141,20 +149,19 @@ export function ShiftScreen({ shiftId }: { shiftId: string }) {
             <p className="text-muted-foreground">
               Введённое на этом планшете сохранено и никуда не пропадёт.
             </p>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={() => void shift.resolveKeepMine()}>
-                Оставить моё
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => void shift.resolveTakeTheirs()}>
-                Взять из 1С
-              </Button>
-            </div>
+            <Button size="sm" onClick={() => void shift.retryConflict()}>
+              Получить версию 1С
+            </Button>
           </CardContent>
         </Card>
       ) : shift.error ? (
         <Card className="border-destructive">
           <CardContent className="pt-6 text-sm text-destructive">{shift.error}</CardContent>
         </Card>
+      ) : null}
+
+      {shift.mine ? (
+        <MineCopy context={context} mine={shift.mine} onDismiss={shift.dismissMine} />
       ) : null}
 
       <WorkersSection context={context} shift={shift} disabled={closed} />
@@ -166,8 +173,87 @@ export function ShiftScreen({ shiftId }: { shiftId: string }) {
         disabled={closed}
         workshopId={workshop?.id}
         needsProducts={needsProducts}
+        context={context}
       />
     </div>
+  );
+}
+
+// ---------- своя копия после расхождения ----------
+
+/**
+ * При расхождении побеждает 1С: в работе её версия, а то, что было введено
+ * на этом планшете, показывается рядом только для чтения. Человек переносит
+ * нужное руками и убирает копию. Автоматически ничего не сливаем.
+ */
+function MineCopy({
+  context,
+  mine,
+  onDismiss,
+}: {
+  context: WorkshopContext;
+  mine: ShiftState;
+  onDismiss: () => void;
+}) {
+  const nameOf = (id: string | null | undefined, list: { id: string; name: string }[]) =>
+    list.find((x) => x.id === id)?.name ?? "";
+
+  return (
+    <Card className="border-destructive">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Ваша версия с этого планшета</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        <p className="text-muted-foreground">
+          Смену изменили с другого устройства, в работе версия из 1С. Ниже то, что
+          было введено здесь и в 1С не попало.
+        </p>
+
+        {mine.workers.length > 0 ? (
+          <p>
+            <span className="font-medium">Кто вышел: </span>
+            {mine.workers.map((w) => nameOf(w.employee_id, context.employees)).join(", ")}
+          </p>
+        ) : null}
+
+        {mine.outputs.length > 0 ? (
+          <div>
+            <p className="font-medium">Выработка</p>
+            {mine.outputs.map((o, i) => (
+              <p key={i} className="text-muted-foreground">
+                {nameOf(o.employee_id, context.employees)} ·{" "}
+                {nameOf(o.work_type_id, context.work_types)}
+                {o.product_id ? ` · ${nameOf(o.product_id, context.products)}` : ""}: {o.qty}
+                {o.defect_qty ? `, брак ${o.defect_qty}` : ""}
+              </p>
+            ))}
+          </div>
+        ) : null}
+
+        {mine.products.length > 0 ? (
+          <div>
+            <p className="font-medium">Итог выпуска</p>
+            {mine.products.map((p) => (
+              <p key={p.product_id} className="text-muted-foreground">
+                {nameOf(p.product_id, context.products)}: {p.qty}
+                {p.defect_qty ? `, брак ${p.defect_qty}` : ""}
+              </p>
+            ))}
+          </div>
+        ) : null}
+
+        {mine.comment ? (
+          <p>
+            <span className="font-medium">Комментарий: </span>
+            {mine.comment}
+          </p>
+        ) : null}
+
+        <Button size="sm" variant="outline" onClick={onDismiss}>
+          Убрать копию
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -243,22 +329,23 @@ function OutputsSection({
   const [formError, setFormError] = useState<string | null>(null);
 
   const workType = context.work_types.find((w) => w.id === workTypeId);
-  const isDowntime = workType?.is_downtime ?? false;
+  // Без продукции бывает не только простой: чистка форм, погрузка, уборка.
+  const noProduct = workType ? !workType.requires_product : false;
 
   function add() {
     const amount = Number(qty.replace(",", "."));
     if (!employeeId) return setFormError("Выберите работника");
     if (!workTypeId) return setFormError("Выберите вид работ");
-    if (!isDowntime && !productId) return setFormError("Выберите продукцию");
+    if (!noProduct && !productId) return setFormError("Выберите продукцию");
     if (!amount || amount <= 0) return setFormError("Укажите количество");
 
     const line: ShiftOutput = {
       employee_id: employeeId,
       work_type_id: workTypeId,
-      product_id: isDowntime ? null : productId,
+      product_id: noProduct ? null : productId,
       qty: amount,
-      defect_qty: isDowntime ? 0 : Number(defectQty.replace(",", ".")) || 0,
-      machine: isDowntime ? undefined : machine || undefined,
+      defect_qty: noProduct ? 0 : Number(defectQty.replace(",", ".")) || 0,
+      machine: noProduct ? undefined : machine || undefined,
     };
     shift.update({ outputs: [...shift.state.outputs, line] });
     setQty("");
@@ -354,7 +441,7 @@ function OutputsSection({
                     </select>
                   </div>
 
-                  {!isDowntime ? (
+                  {!noProduct ? (
                     <div className="space-y-1.5 sm:col-span-2">
                       <Label htmlFor="product">Продукция</Label>
                       <select
@@ -375,7 +462,7 @@ function OutputsSection({
 
                   <div className="space-y-1.5">
                     <Label htmlFor="qty">
-                      {isDowntime ? "Часы простоя" : `Количество, ${workType?.unit ?? "шт"}`}
+                      Количество, {workType?.unit ?? "шт"}
                     </Label>
                     <Input
                       id="qty"
@@ -385,7 +472,7 @@ function OutputsSection({
                     />
                   </div>
 
-                  {!isDowntime ? (
+                  {!noProduct ? (
                     <div className="space-y-1.5">
                       <Label htmlFor="defect">Брак</Label>
                       <Input
@@ -397,7 +484,7 @@ function OutputsSection({
                     </div>
                   ) : null}
 
-                  {!isDowntime ? (
+                  {!noProduct ? (
                     <div className="space-y-1.5 sm:col-span-2">
                       <Label htmlFor="machine">Станок, необязательно</Label>
                       <Input
@@ -559,7 +646,16 @@ function MaterialsSection({
   // У закрытой смены материалы уже списаны, сравнивать с остатком нечего:
   // показываем то, что ушло в 1С.
   if (closed) {
-    const written = shift.state.materials;
+    // 1С отдаёт материалы строками по продукции: человеку нужна сумма по материалу.
+    const totals = new Map<string, number>();
+    for (const m of shift.state.materials) {
+      totals.set(m.item_id, (totals.get(m.item_id) ?? 0) + m.qty);
+    }
+    const written = Array.from(totals.entries()).map(([item_id, qty]) => ({
+      item_id,
+      qty: Math.round(qty * 1000) / 1000,
+    }));
+    const reflected = shift.shift?.accounting?.status === "done";
     return (
       <Card>
         <CardHeader className="pb-3">
@@ -581,7 +677,9 @@ function MaterialsSection({
                   </div>
                 );
               })}
-              <p className="text-xs text-muted-foreground">Списано при закрытии смены.</p>
+              <p className="text-xs text-muted-foreground">
+                {reflected ? "Списано при отражении в учёте." : "Будет списано при отражении в учёте."}
+              </p>
             </>
           )}
         </CardContent>
@@ -629,7 +727,7 @@ function MaterialsSection({
                 {shortage.map((n) => `${n.name} на ${n.short} ${n.unit}`).join(", ")}
               </p>
               <p className="mt-1 text-muted-foreground">
-                Пока его нет на складе цеха, смену закрыть не получится.
+                Смена закроется, но в учёте отразится только после поступления сырья.
               </p>
             </div>
           </div>
@@ -650,34 +748,79 @@ function CloseSection({
   disabled,
   workshopId,
   needsProducts,
+  context,
 }: {
   shift: ReturnType<typeof useShift>;
   disabled: boolean;
   workshopId?: string;
   needsProducts: boolean;
+  context: WorkshopContext;
 }) {
   const router = useRouter();
-  const [comment, setComment] = useState("");
   const [closing, setClosing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  /** Все нарушения ввода, которые 1С вернула разом. */
+  const [problems, setProblems] = useState<string[]>([]);
 
-  const report = shift.shift?.production_report;
+  const accounting = shift.shift?.accounting;
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    setFailure(null);
+    try {
+      await shift.refresh();
+      invalidateWorkshopContext(workshopId);
+    } catch (e) {
+      setFailure(describeError(e));
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   if (disabled) {
+    const docs = accounting?.documents;
+    const reflected = [
+      docs?.production_report ? `отчёт производства ${docs.production_report.number}` : "",
+      docs?.payroll ? `начисление зарплаты ${docs.payroll.number}` : "",
+    ].filter(Boolean);
+
     return (
       <Card>
         <CardContent className="space-y-3 pt-6 text-sm">
           <p className="font-medium">Смена закрыта.</p>
-          {report ? (
+
+          {accounting?.status === "done" ? (
             <p className="text-muted-foreground">
-              В 1С создан отчёт производства за смену {report.number} от {report.date}.
+              Отражена в учёте{reflected.length ? `: ${reflected.join(", ")}` : ""}.
             </p>
           ) : null}
+
+          {accounting?.status === "pending" ? (
+            <div className="space-y-2 rounded-md bg-muted p-3">
+              <p className="font-medium">Ждёт отражения в учёте</p>
+              {accounting.message ? (
+                <p className="text-muted-foreground">{accounting.message}</p>
+              ) : null}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void handleRefresh()}
+                disabled={refreshing}
+              >
+                {refreshing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Обновить
+              </Button>
+            </div>
+          ) : null}
+
+          {failure ? <p className="text-destructive">{failure}</p> : null}
+
           <Button variant="outline" size="sm" onClick={() => router.push("/w")}>
             К рабочему месту
           </Button>
 
-          <ReopenBlock shift={shift} workshopId={workshopId} />
+          <ReopenBlock shift={shift} workshopId={workshopId} context={context} />
         </CardContent>
       </Card>
     );
@@ -686,11 +829,14 @@ function CloseSection({
   async function handleClose() {
     setClosing(true);
     setFailure(null);
+    setProblems([]);
     try {
-      await shift.close(comment || undefined);
+      await shift.close();
       invalidateWorkshopContext(workshopId);
     } catch (e) {
-      setFailure(describeError(e));
+      const all = e instanceof Api1CError ? e.validationMessages : [];
+      if (all.length > 0) setProblems(all);
+      else setFailure(describeError(e));
     } finally {
       setClosing(false);
     }
@@ -704,13 +850,26 @@ function CloseSection({
       <CardContent className="space-y-3">
         <div className="space-y-1.5">
           <Label htmlFor="comment">Комментарий, необязательно</Label>
+          {/* Комментарий часть документа: уходит в 1С обычным сохранением, до закрытия. */}
           <Input
             id="comment"
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
+            value={shift.state.comment}
+            onChange={(e) => shift.update({ comment: e.target.value })}
             placeholder="станок №2 простаивал 40 минут"
           />
         </div>
+
+        {problems.length > 0 ? (
+          <div className="flex gap-2 rounded-md border border-destructive p-3 text-sm text-destructive">
+            <TriangleAlert className="h-4 w-4 shrink-0" />
+            <div>
+              {problems.map((text, i) => (
+                <p key={i}>{text}</p>
+              ))}
+              <p className="mt-1 text-muted-foreground">Смена осталась открытой.</p>
+            </div>
+          </div>
+        ) : null}
 
         {failure ? (
           <div className="flex gap-2 rounded-md border border-destructive p-3 text-sm text-destructive">
@@ -739,8 +898,8 @@ function CloseSection({
           Закрыть смену
         </Button>
         <p className="text-xs text-muted-foreground">
-          При закрытии 1С проводит отчёт производства: продукция приходуется на склад цеха,
-          материалы списываются, зарплата начисляется по расценкам на дату смены.
+          После закрытия смену править нельзя. Приход продукции, списание материалов
+          и зарплату 1С отражает в учёте следом.
         </p>
       </CardContent>
     </Card>
@@ -750,18 +909,38 @@ function CloseSection({
 // ---------- переоткрытие ----------
 
 /**
- * Переоткрыть закрытую смену может только администратор: 1С распроведёт отчёт
- * производства, то есть отменит приход продукции, списание материалов
- * и начисление зарплаты. Поэтому просим причину и предупреждаем, что будет.
+ * Переоткрыть закрытую смену может только администратор: 1С отменит отражение
+ * в учёте, то есть приход продукции, списание материалов и начисление зарплаты.
+ * Поэтому просим причину и предупреждаем, что будет.
+ *
+ * Остатки при отмене 1С не проверяет: если продукцию уже передали дальше, склад
+ * уйдёт в минус. Предупреждаем сами по тому остатку, который знаем.
  */
 function ReopenBlock({
   shift,
   workshopId,
+  context,
 }: {
   shift: ReturnType<typeof useShift>;
   workshopId?: string;
+  context: WorkshopContext;
 }) {
   const { me } = useApi1C();
+  const reflected = shift.shift?.accounting?.status === "done";
+  const gone = reflected
+    ? shift.state.products
+        .map((p) => {
+          const line = context.stock.find((x) => x.item_id === p.product_id);
+          const have = line?.available ?? 0;
+          const info = context.products.find((x) => x.id === p.product_id);
+          return {
+            name: info?.name ?? line?.name ?? p.product_id,
+            unit: info?.unit ?? line?.unit ?? "",
+            lack: Math.round((p.qty - have) * 1000) / 1000,
+          };
+        })
+        .filter((x) => x.lack > 0)
+    : [];
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -795,9 +974,21 @@ function ReopenBlock({
   return (
     <div className="space-y-3 rounded-md border border-dashed p-3">
       <p className="text-muted-foreground">
-        1С распроведёт отчёт производства: приход продукции, списание материалов
-        и начисление зарплаты отменятся.
+        {reflected
+          ? "1С отменит отражение в учёте: приход продукции, списание материалов и начисление зарплаты."
+          : "В учёте смена ещё не отражена, отменять нечего."}
       </p>
+
+      {gone.length > 0 ? (
+        <div className="flex gap-2 rounded-md bg-destructive/10 p-3 text-destructive">
+          <TriangleAlert className="h-4 w-4 shrink-0" />
+          <p>
+            Продукции этой смены на складе уже меньше:{" "}
+            {gone.map((g) => `${g.name}, не хватает ${g.lack} ${g.unit}`).join("; ")}. После
+            переоткрытия остаток уйдёт в минус.
+          </p>
+        </div>
+      ) : null}
 
       <div className="space-y-1.5">
         <Label htmlFor="reason">Причина</Label>

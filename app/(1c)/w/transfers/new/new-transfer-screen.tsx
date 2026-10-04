@@ -4,7 +4,7 @@
 // и не больше доступного остатка: 1С всё равно откажет, но человеку лучше увидеть
 // границу сразу, прямо в поле ввода.
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Send } from "lucide-react";
@@ -28,6 +28,10 @@ export function NewTransferScreen() {
   const [qtyByItem, setQtyByItem] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  // Ключ идемпотентности один на всю форму: создаётся до первой попытки и повторяется
+  // во всех повторах. Если ответ на первую попытку потерялся, 1С по нему вернёт уже
+  // созданный документ, а не сделает второй.
+  const idempotencyKey = useRef<string | null>(null);
 
   // Передавать имеет смысл только то, что реально есть в наличии.
   const available = useMemo(
@@ -61,9 +65,9 @@ export function NewTransferScreen() {
           comment,
           lines,
         },
-        newIdempotencyKey(),
+        (idempotencyKey.current ??= newIdempotencyKey()),
       );
-      invalidateWorkshopContext(workshop.id);
+      invalidateWorkshopContext();
       router.replace(`/w/transfer?id=${doc.id}`);
     } catch (e) {
       setError(describeError(e));

@@ -6,6 +6,7 @@ import type { Api1C } from "./api";
 import type {
   ApiErrorBody,
   ApiErrorCode,
+  CloseShiftResult,
   ConfirmSide,
   Id,
   Me,
@@ -40,6 +41,31 @@ export class Api1CError extends Error {
   get isUserFacing(): boolean {
     return this.code !== "internal";
   }
+
+  /** Все нарушения ввода из details (1С отдаёт их разом), готовые к показу. */
+  get validationMessages(): string[] {
+    if (this.code !== "validation" || !Array.isArray(this.details)) return [];
+    return (this.details as { message?: unknown }[])
+      .map((d) => (typeof d?.message === "string" ? d.message : ""))
+      .filter(Boolean);
+  }
+}
+
+/**
+ * Ошибки, которые отдаёт не сервис, а платформа 1С или веб-сервер: у них нет
+ * JSON-тела (HTML от IIS, простой текст), поэтому разбираем по коду HTTP.
+ */
+function errorFromStatus(status: number): { code: ApiErrorCode; message: string } {
+  if (status === 401) return { code: "forbidden", message: "Неверный логин или пароль 1С" };
+  if (status === 403) return { code: "forbidden", message: "Недостаточно прав для этого действия" };
+  if (status === 404) return { code: "not_found", message: "Не найдено в 1С" };
+  return { code: "internal", message: `Ошибка обмена с 1С (${status})` };
+}
+
+/** Часть ответов приходит в обёртке { ok, <key>: документ }, часть документом как есть. */
+function unwrap<T>(response: unknown, key: string): T {
+  const wrapped = (response as Record<string, unknown> | null)?.[key];
+  return (wrapped && typeof wrapped === "object" ? wrapped : response) as T;
 }
 
 /** Сеть недоступна: планшет офлайн или сервис не отвечает. Повод встать в очередь. */
@@ -54,7 +80,10 @@ export class Api1COfflineError extends Error {
 }
 
 export type Api1CConfig = {
-  /** Базовый URL сервиса, например https://<сервер>/<база>/hs/lf/v1 */
+  /**
+   * Адрес сервиса. Полный (https://<сервер>/<база>/hs/lf/v1) или относительный
+   * (/<база>/hs/lf/v1), когда приложение лежит на том же веб-сервере, что и 1С.
+   */
   baseUrl: string;
   /** Заголовок авторизации. Для Basic: "Basic " + base64(логин:пароль). */
   getAuthHeader: () => string | Promise<string>;
@@ -68,7 +97,7 @@ type RequestOptions = {
   body?: unknown;
   /** Версия документа для проверки конфликта (If-Match). */
   version?: string;
-  /** Ключ идемпотентности для POST, который создаёт или проводит документ. */
+  /** Ключ идемпотентности: по контракту v0.2 нужен только для POST /transfers. */
   idempotencyKey?: string;
   query?: Record<string, string | number | undefined>;
 };
@@ -93,7 +122,9 @@ export class Api1CClient implements Api1C {
 
   private async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
     const { method = "GET", body, version, idempotencyKey, query } = options;
-    const url = new URL(this.config.baseUrl.replace(/\/$/, "") + path);
+    // Относительный адрес сервиса разворачиваем от адреса самой страницы.
+    const origin = typeof window === "undefined" ? "http://localhost" : window.location.origin;
+    const url = new URL(this.config.baseUrl.replace(/\/$/, "") + path, origin);
     for (const [key, value] of Object.entries(query ?? {})) {
       if (value !== undefined) url.searchParams.set(key, String(value));
     }
@@ -141,9 +172,10 @@ export class Api1CClient implements Api1C {
 
     if (!response.ok) {
       const err = (payload as ApiErrorBody | null)?.error;
+      const fallback = errorFromStatus(response.status);
       throw new Api1CError(
-        err?.code ?? (response.status === 401 ? "forbidden" : "internal"),
-        err?.message ?? `Ошибка обмена с 1С (${response.status})`,
+        err?.code ?? fallback.code,
+        err?.message ?? fallback.message,
         response.status,
         err?.details,
       );
@@ -186,8 +218,8 @@ export class Api1CClient implements Api1C {
     return this.request<Page<ShiftHead>>("/shifts", { query: { ...query } });
   }
 
-  getShift(shiftId: Id) {
-    return this.request<Shift>(`/shifts/${shiftId}`);
+  async getShift(shiftId: Id): Promise<Shift> {
+    return unwrap<Shift>(await this.request<unknown>(`/shifts/${shiftId}`), "shift");
   }
 
   /** Открыть смену. Идемпотентно по ключу (цех, дата, номер смены). */
@@ -209,13 +241,16 @@ export class Api1CClient implements Api1C {
     return res.version;
   }
 
-  /** Закрыть смену: 1С проводит отчёт производства. При отказе смена остаётся open. */
-  closeShift(shiftId: Id, opts: { version?: string; idempotencyKey: string; comment?: string }) {
-    return this.request<{ ok: true; shift: Shift; warnings?: string[] }>(`/shifts/${shiftId}/close`, {
+  /**
+   * Закрыть смену. 1С проверяет только ввод цеха и закрывает; отражение в учёте
+   * идёт вторым шагом и приходит в блоке accounting. Тело пустое: комментарий
+   * в close не обрабатывается, он уходит через saveShift.
+   */
+  closeShift(shiftId: Id, opts: { version?: string } = {}) {
+    return this.request<CloseShiftResult>(`/shifts/${shiftId}/close`, {
       method: "POST",
-      body: opts.comment ? { comment: opts.comment } : {},
+      body: {},
       version: opts.version,
-      idempotencyKey: opts.idempotencyKey,
     });
   }
 
@@ -233,34 +268,50 @@ export class Api1CClient implements Api1C {
     return this.request<Page<TransferHead>>("/transfers", { query: { ...query } });
   }
 
-  getTransfer(transferId: Id) {
-    return this.request<Transfer>(`/transfers/${transferId}`);
+  async getTransfer(transferId: Id): Promise<Transfer> {
+    return unwrap<Transfer>(await this.request<unknown>(`/transfers/${transferId}`), "transfer");
   }
 
-  createTransfer(doc: NewTransfer, idempotencyKey: string) {
-    return this.request<Transfer>("/transfers", { method: "POST", body: doc, idempotencyKey });
+  /**
+   * Ключ создаётся до первой попытки и повторяется во всех повторах: по нему 1С
+   * вернёт уже созданный документ вместо дубля, если ответ на первую попытку потерялся.
+   */
+  async createTransfer(doc: NewTransfer, idempotencyKey: string): Promise<Transfer> {
+    return unwrap<Transfer>(
+      await this.request<unknown>("/transfers", { method: "POST", body: doc, idempotencyKey }),
+      "transfer",
+    );
   }
 
   /** Правка строк любой стороной: сбрасывает оба подтверждения. */
-  updateTransfer(
+  async updateTransfer(
     transferId: Id,
     patch: { comment?: string; lines: NewTransfer["lines"] },
     version?: string,
-  ) {
-    return this.request<Transfer>(`/transfers/${transferId}`, {
-      method: "PUT",
-      body: patch,
-      version,
-    });
+  ): Promise<Transfer> {
+    return unwrap<Transfer>(
+      await this.request<unknown>(`/transfers/${transferId}`, {
+        method: "PUT",
+        body: patch,
+        version,
+      }),
+      "transfer",
+    );
   }
 
   /** Подтвердить своей стороной. Когда подтвердили обе, 1С проводит документ. */
-  confirmTransfer(transferId: Id, opts: { version?: string; side?: ConfirmSide } = {}) {
-    return this.request<Transfer>(`/transfers/${transferId}/confirm`, {
-      method: "POST",
-      body: opts.side ? { side: opts.side } : {},
-      version: opts.version,
-    });
+  async confirmTransfer(
+    transferId: Id,
+    opts: { version?: string; side?: ConfirmSide } = {},
+  ): Promise<Transfer> {
+    return unwrap<Transfer>(
+      await this.request<unknown>(`/transfers/${transferId}/confirm`, {
+        method: "POST",
+        body: opts.side ? { side: opts.side } : {},
+        version: opts.version,
+      }),
+      "transfer",
+    );
   }
 
   deleteTransfer(transferId: Id) {

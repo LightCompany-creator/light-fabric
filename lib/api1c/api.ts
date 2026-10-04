@@ -3,6 +3,7 @@
 // из контракта. Пока сервис Арсена не опубликован, весь UI живёт на заглушке.
 
 import type {
+  CloseShiftResult,
   ConfirmSide,
   Id,
   Me,
@@ -30,10 +31,12 @@ export interface Api1C {
   getShift(shiftId: Id): Promise<Shift>;
   openShift(workshopId: Id, date: string, shiftNo: 1 | 2): Promise<Shift>;
   saveShift(shiftId: Id, state: ShiftState, version?: string): Promise<string>;
-  closeShift(
-    shiftId: Id,
-    opts: { version?: string; idempotencyKey: string; comment?: string },
-  ): Promise<{ ok: true; shift: Shift; warnings?: string[] }>;
+  /**
+   * Закрыть смену. Проверяется только ввод цеха; учёт отражается вторым шагом
+   * и закрытие не блокирует. Повтор по закрытой смене возвращает её состояние,
+   * поэтому ключ идемпотентности здесь не нужен. Комментарий уходит через saveShift.
+   */
+  closeShift(shiftId: Id, opts?: { version?: string }): Promise<CloseShiftResult>;
   reopenShift(shiftId: Id, reason: string): Promise<{ ok: true; shift: Shift }>;
 
   listTransfers(query: TransfersQuery): Promise<Page<TransferHead>>;

@@ -45,7 +45,10 @@ export function describeError(error: unknown): string {
   }
   if (error instanceof Api1CError) {
     if (error.httpStatus === 401) return "Неверный логин или пароль 1С.";
-    return error.isUserFacing ? error.message : "Ошибка на стороне 1С. Сообщите администратору.";
+    if (!error.isUserFacing) return "Ошибка на стороне 1С. Сообщите администратору.";
+    // 1С присылает все нарушения ввода разом: показываем их списком, а не только первое.
+    const all = error.validationMessages;
+    return all.length > 1 ? all.join("; ") : error.message;
   }
   return "Не получилось выполнить действие. Попробуйте ещё раз.";
 }

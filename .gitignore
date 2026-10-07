@@ -62,3 +62,7 @@ next-env.d.ts
 
 # Временная сборка для проверок
 .tmp/
+
+# Статическая сборка для сервера 1С (scripts/build-static.mjs)
+/dist/
+/.static-aside/

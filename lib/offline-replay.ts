@@ -16,7 +16,7 @@ function payloadToFormData(payload: Record<string, string | number | null>): For
 
 // addOutput — добавление записи выработки в смену
 const replayAddOutput: Replayer = async (m) => {
-  const { addOutputAction } = await import("@/app/(app)/shifts/actions");
+  const { addOutputAction } = await import("./offline-replay-actions");
   await addOutputAction(m.context.shiftId, payloadToFormData(m.payload));
 };
 
@@ -25,7 +25,7 @@ const replayAddOutput: Replayer = async (m) => {
 // и аппендит одну. При повторной отправке offline-очереди дубликата не будет
 // (если первая попытка вообще не дошла до БД) и не пропадёт (если дошла).
 const replayAddWorker: Replayer = async (m) => {
-  const { addWorkerOperationAction } = await import("@/app/(app)/shifts/actions");
+  const { addWorkerOperationAction } = await import("./offline-replay-actions");
   await addWorkerOperationAction(m.context.shiftId, payloadToFormData(m.payload));
 };
 

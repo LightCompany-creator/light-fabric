@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Download, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { withBase } from "@/lib/base-path";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -23,7 +24,7 @@ export function PwaRegister() {
 
     const onLoad = () => {
       navigator.serviceWorker
-        .register("/sw.js", { scope: "/" })
+        .register(withBase("/sw.js"), { scope: withBase("/") })
         .catch((err) => console.warn("SW registration failed:", err));
     };
     if (document.readyState === "complete") onLoad();

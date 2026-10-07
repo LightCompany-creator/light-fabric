@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:static": "node scripts/build-static.mjs",
     "start": "next start",
     "lint": "next lint",
     "check:api1c": "tsc lib/api1c/client.ts lib/api1c/types.ts lib/api1c/api.ts --outDir .tmp/api1c-check --module commonjs --target es2022 --moduleResolution node --skipLibCheck && node scripts/check-api1c-client.cjs"

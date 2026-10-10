@@ -137,6 +137,13 @@ export function TransferScreen({ transferId }: { transferId: string }) {
           <CardTitle className="text-base">Позиции</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          {!posted ? (
+            <p className="text-sm text-muted-foreground">
+              {iAmSender
+                ? "Пока получатель не принял, количество можно изменить: пересчитали, договорились, поправили здесь."
+                : "Если количество не сходится, поправьте его здесь. Отправитель увидит новую цифру и подтвердит заново."}
+            </p>
+          ) : null}
           {doc.lines.map((line) => (
             <div key={line.item_id} className="grid gap-2 sm:grid-cols-[1fr_9rem]">
               <div className="self-center text-sm">
@@ -184,6 +191,13 @@ export function TransferScreen({ transferId }: { transferId: string }) {
         <CardContent className="space-y-3 text-sm">
           <ConfirmRow label={`Отправитель, ${doc.from.name}`} mark={doc.sender_confirmed} />
           <ConfirmRow label={`Получатель, ${doc.to.name}`} mark={doc.receiver_confirmed} />
+
+          {!posted && !doc.sender_confirmed && !doc.receiver_confirmed ? (
+            <p className="text-muted-foreground">
+              Количество изменили после создания, подписи сняты. Обеим сторонам нужно
+              подтвердить новую цифру.
+            </p>
+          ) : null}
 
           {posted ? (
             <p className="text-muted-foreground">

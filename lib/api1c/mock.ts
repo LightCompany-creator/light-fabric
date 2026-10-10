@@ -57,6 +57,7 @@ const WORKSHOPS: WorkshopRef[] = [
 /** Единый справочник номенклатуры: и покупное сырьё, и полуфабрикаты, и готовое. */
 const ITEMS: Record<Id, { code: string; name: string; unit: string }> = {
   "i-eva": { code: "00-00000501", name: "Пластикат ЭВА чёрный", unit: "кг" },
+  "i-eva-2": { code: "00-00000503", name: "Пластикат ЭВА чёрный 2 сорт", unit: "кг" },
   "i-cloth": { code: "00-00000502", name: "Ткань подкладочная", unit: "м" },
   "i-galosh": { code: "00-00001001", name: "Галоша ЭВА 112", unit: "пар" },
   "i-galosh-137": { code: "00-00001004", name: "Галоша ЭВА 137 купальная", unit: "пар" },
@@ -190,7 +191,8 @@ const CATALOG: Record<Id, WorkshopData> = {
 
 /** Остатки складов цехов: покупное сырьё лежит только в начале цепочки. */
 const stock: Record<Id, Record<Id, number>> = {
-  "w-lit": { "i-eva": 1250.5, "i-galosh": 320 },
+  // Второй сорт лежит на складе, но в спецификации его нет: чтобы было чем заменить.
+  "w-lit": { "i-eva": 1250.5, "i-eva-2": 400, "i-galosh": 320 },
   "w-cut": { "i-cloth": 900, "i-blank": 180 },
   "w-sew": { "i-blank": 120, "i-sock": 210 },
   "w-assy": { "i-galosh": 40, "i-sock": 40 },
@@ -208,7 +210,7 @@ let docNo = 123;
 
 // Настоящая 1С помнит документы между запусками, поэтому и заглушка должна:
 // иначе после каждой перезагрузки страницы смена пропадает и проверить ничего нельзя.
-const PERSIST_KEY = "lf.1c.mock.v4";
+const PERSIST_KEY = "lf.1c.mock.v5";
 const OFFLINE_KEY = "lf.1c.mock.offline";
 const LATENCY_KEY = "lf.1c.mock.latency";
 let restored = false;

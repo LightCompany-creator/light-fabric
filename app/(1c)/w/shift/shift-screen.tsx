@@ -23,7 +23,13 @@ import {
   useWorkshopContext,
 } from "@/lib/api1c/use-workshop-context";
 import { Api1CError } from "@/lib/api1c";
-import type { ShiftOutput, ShiftProduct, ShiftState, WorkshopContext } from "@/lib/api1c";
+import type {
+  ShiftMaterial,
+  ShiftOutput,
+  ShiftProduct,
+  ShiftState,
+  WorkshopContext,
+} from "@/lib/api1c";
 
 const selectClass =
   "h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring";
@@ -54,20 +60,35 @@ type MaterialNeed = {
   short: number;
 };
 
+const round3 = (n: number) => Math.round(n * 1000) / 1000;
+
+/**
+ * Материалы к списанию по основной спецификации, строками «продукция → материал».
+ * Это то, что 1С заполнила бы сама; здесь человек может от нормы отойти.
+ */
+function materialsBySpec(products: ShiftProduct[], ctx: WorkshopContext): ShiftMaterial[] {
+  const lines: ShiftMaterial[] = [];
+  for (const p of products) {
+    const spec = ctx.products.find((x) => x.id === p.product_id)?.spec ?? [];
+    for (const line of spec) {
+      lines.push({ item_id: line.item_id, product_id: p.product_id, qty: round3(line.qty_per_unit * p.qty) });
+    }
+  }
+  return lines;
+}
+
+
 /**
  * Потребность в материалах по основной спецификации против остатка склада цеха.
  * Считаем заранее, чтобы нехватка всплывала во время работы, а не отказом 1С
  * в момент закрытия смены.
  */
-function calcMaterials(products: ShiftProduct[], ctx: WorkshopContext): MaterialNeed[] {
+function calcMaterials(materials: ShiftMaterial[], ctx: WorkshopContext): MaterialNeed[] {
   const need = new Map<string, number>();
-  for (const p of products) {
-    const spec = ctx.products.find((x) => x.id === p.product_id)?.spec ?? [];
-    for (const line of spec) {
-      need.set(line.item_id, (need.get(line.item_id) ?? 0) + line.qty_per_unit * p.qty);
-    }
+  for (const m of materials) {
+    need.set(m.item_id, (need.get(m.item_id) ?? 0) + m.qty);
   }
-  const round = (n: number) => Math.round(n * 1000) / 1000;
+  const round = round3;
 
   return Array.from(need.entries()).map(([item_id, raw]) => {
     const required = round(raw);
@@ -623,8 +644,14 @@ function ProductsSection({
   );
 }
 
-// ---------- материалы по норме ----------
+// ---------- материалы к списанию ----------
 
+/**
+ * Материалы к списанию заполняются по спецификации сами, как только есть выпуск,
+ * и уходят в 1С вместе со сменой. Начальник цеха может от нормы отойти: заменить
+ * материал на тот, что есть по факту, разбить строку на два материала или
+ * поправить количество. Пока он ничего не трогал, в 1С уходит ровно норма.
+ */
 function MaterialsSection({
   context,
   shift,
@@ -635,48 +662,60 @@ function MaterialsSection({
   closed: boolean;
 }) {
   // Считаем по подтверждённому итогу, а пока его нет, по подсказке из выработки.
-  const { products, outputs } = shift.state;
+  const { products, outputs, materials } = shift.state;
   const basis = useMemo(
     () => (products.length > 0 ? products : suggestProducts(outputs)),
     [products, outputs],
   );
-  const needs = useMemo(() => calcMaterials(basis, context), [basis, context]);
+  const norm = useMemo(() => materialsBySpec(basis, context), [basis, context]);
+  // Пока человек не правил строки, показываем норму; как только поправил, его версию.
+  const edited = materials.length > 0;
+  const shown = edited ? materials : norm;
+  const needs = useMemo(() => calcMaterials(shown, context), [shown, context]);
   const shortage = needs.filter((n) => n.short > 0);
+  const reflected = shift.shift?.accounting?.status === "done";
 
-  // У закрытой смены материалы уже списаны, сравнивать с остатком нечего:
-  // показываем то, что ушло в 1С.
+  const productOf = (id: string) => context.products.find((p) => p.id === id)?.article ?? id;
+
+  // Любая правка начинается с копии нормы: дальше в 1С уходит то, что на экране.
+  const commit = (next: ShiftMaterial[]) => shift.update({ materials: next });
+  const replaceItem = (index: number, itemId: string) =>
+    commit(shown.map((m, i) => (i === index ? { ...m, item_id: itemId } : m)));
+  const setQty = (index: number, value: string) => {
+    const qty = Number(value.replace(",", ".")) || 0;
+    commit(shown.map((m, i) => (i === index ? { ...m, qty } : m)));
+  };
+  const split = (index: number) => {
+    const line = shown[index];
+    const half = round3(line.qty / 2);
+    const other = context.materials.find((m) => m.id !== line.item_id)?.id ?? line.item_id;
+    const next = [...shown];
+    next.splice(index, 1, { ...line, qty: half }, { ...line, item_id: other, qty: round3(line.qty - half) });
+    commit(next);
+  };
+  const remove = (index: number) => commit(shown.filter((_, i) => i !== index));
+  const resetToNorm = () => shift.update({ materials: [] });
+
+  // ---- закрытая смена: только чтение ----
   if (closed) {
-    // 1С отдаёт материалы строками по продукции: человеку нужна сумма по материалу.
-    const totals = new Map<string, number>();
-    for (const m of shift.state.materials) {
-      totals.set(m.item_id, (totals.get(m.item_id) ?? 0) + m.qty);
-    }
-    const written = Array.from(totals.entries()).map(([item_id, qty]) => ({
-      item_id,
-      qty: Math.round(qty * 1000) / 1000,
-    }));
-    const reflected = shift.shift?.accounting?.status === "done";
     return (
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Материалы</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
-          {written.length === 0 ? (
+          {shown.length === 0 ? (
             <p className="text-muted-foreground">Материалы по этой смене не списывались.</p>
           ) : (
             <>
-              {written.map((m) => {
-                const info = context.materials.find((x) => x.id === m.item_id);
-                return (
-                  <div key={m.item_id} className="flex items-center justify-between gap-4">
-                    <span className="truncate">{info?.name ?? m.item_id}</span>
-                    <span className="shrink-0 tabular-nums">
-                      {m.qty} {info?.unit ?? ""}
-                    </span>
-                  </div>
-                );
-              })}
+              {needs.map((n) => (
+                <div key={n.item_id} className="flex items-center justify-between gap-4">
+                  <span className="truncate">{n.name}</span>
+                  <span className="shrink-0 tabular-nums">
+                    {n.required} {n.unit}
+                  </span>
+                </div>
+              ))}
               <p className="text-xs text-muted-foreground">
                 {reflected ? "Списано при отражении в учёте." : "Будет списано при отражении в учёте."}
               </p>
@@ -687,39 +726,91 @@ function MaterialsSection({
     );
   }
 
-  if (needs.length === 0) {
+  if (shown.length === 0) {
     return (
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Материалы по норме</CardTitle>
+          <CardTitle className="text-base">Материалы к списанию</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          Появятся, когда будет выпуск. Списывает их 1С по спецификации, вводить вручную не нужно.
+          Заполнятся по норме, как только будет выпуск. Если по факту списано другое,
+          здесь можно будет заменить материал или разбить строку.
         </CardContent>
       </Card>
     );
   }
 
+  const byProduct = new Map<string, number[]>();
+  shown.forEach((m, i) => byProduct.set(m.product_id, [...(byProduct.get(m.product_id) ?? []), i]));
+
   return (
     <Card className={shortage.length ? "border-destructive" : undefined}>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">Материалы по норме</CardTitle>
+        <CardTitle className="text-base">
+          Материалы к списанию
+          {edited ? (
+            <span className="ml-2 text-sm font-normal text-muted-foreground">изменено вручную</span>
+          ) : null}
+        </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 text-sm">
-        {needs.map((n) => (
-          <div key={n.item_id} className="flex items-center justify-between gap-4">
-            <span className="truncate">{n.name}</span>
-            <span className="shrink-0 tabular-nums">
-              <span className={n.short > 0 ? "font-medium text-destructive" : ""}>
-                {n.required} {n.unit}
-              </span>
-              <span className="text-muted-foreground"> из {n.available}</span>
-            </span>
+      <CardContent className="space-y-4">
+        {Array.from(byProduct.entries()).map(([productId, indexes]) => (
+          <div key={productId} className="space-y-2">
+            <p className="text-sm font-medium">{productOf(productId)}</p>
+            {indexes.map((index) => {
+              const line = shown[index];
+              const lack = needs.find((n) => n.item_id === line.item_id)?.short ?? 0;
+              return (
+                <div key={index} className="grid gap-2 sm:grid-cols-[1fr_7rem_auto]">
+                  <select
+                    className={selectClass}
+                    value={line.item_id}
+                    onChange={(e) => replaceItem(index, e.target.value)}
+                  >
+                    {context.materials.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                  <Input
+                    inputMode="decimal"
+                    value={String(line.qty)}
+                    className={lack > 0 ? "border-destructive" : undefined}
+                    onChange={(e) => setQty(index, e.target.value)}
+                  />
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => split(index)} title="Разбить на два материала">
+                      Разбить
+                    </Button>
+                    {indexes.length > 1 ? (
+                      <Button variant="ghost" size="icon" onClick={() => remove(index)} aria-label="Убрать строку">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ))}
 
+        <div className="space-y-1 text-sm">
+          {needs.map((n) => (
+            <div key={n.item_id} className="flex items-center justify-between gap-4">
+              <span className="truncate text-muted-foreground">{n.name}, всего</span>
+              <span className="shrink-0 tabular-nums">
+                <span className={n.short > 0 ? "font-medium text-destructive" : ""}>
+                  {n.required} {n.unit}
+                </span>
+                <span className="text-muted-foreground"> из {n.available}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+
         {shortage.length > 0 ? (
-          <div className="flex gap-2 rounded-md bg-destructive/10 p-3 text-destructive">
+          <div className="flex gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
             <TriangleAlert className="h-4 w-4 shrink-0" />
             <div>
               <p className="font-medium">
@@ -728,14 +819,24 @@ function MaterialsSection({
               </p>
               <p className="mt-1 text-muted-foreground">
                 Смена закроется, но в учёте отразится только после поступления сырья.
+                Если по факту списан другой материал, замените его в строке.
               </p>
             </div>
           </div>
-        ) : (
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-2">
+          {edited ? (
+            <Button variant="outline" size="sm" onClick={resetToNorm}>
+              Вернуть норму
+            </Button>
+          ) : null}
           <p className="text-xs text-muted-foreground">
-            Сырья хватает. Списывать вручную не нужно.
+            {edited
+              ? "В 1С уйдёт то, что здесь указано."
+              : "Заполнено по норме. В 1С уйдёт как есть, если ничего не менять."}
           </p>
-        )}
+        </div>
       </CardContent>
     </Card>
   );

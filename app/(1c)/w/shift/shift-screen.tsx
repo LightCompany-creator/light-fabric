@@ -483,7 +483,7 @@ function OutputsSection({
 
                   <div className="space-y-1.5">
                     <Label htmlFor="qty">
-                      Количество, {workType?.unit ?? "шт"}
+                      Количество, {workType?.unit || (noProduct ? "ч" : "шт")}
                     </Label>
                     <Input
                       id="qty"
@@ -685,12 +685,13 @@ function MaterialsSection({
     const qty = Number(value.replace(",", ".")) || 0;
     commit(shown.map((m, i) => (i === index ? { ...m, qty } : m)));
   };
+  // Вторая строка с тем же материалом: какой подставить вместо него, знает только
+  // человек, а случайный первый из списка только сбивал с толку.
   const split = (index: number) => {
     const line = shown[index];
     const half = round3(line.qty / 2);
-    const other = context.materials.find((m) => m.id !== line.item_id)?.id ?? line.item_id;
     const next = [...shown];
-    next.splice(index, 1, { ...line, qty: half }, { ...line, item_id: other, qty: round3(line.qty - half) });
+    next.splice(index, 1, { ...line, qty: half }, { ...line, qty: round3(line.qty - half) });
     commit(next);
   };
   const remove = (index: number) => commit(shown.filter((_, i) => i !== index));
@@ -1014,8 +1015,9 @@ function CloseSection({
  * в учёте, то есть приход продукции, списание материалов и начисление зарплаты.
  * Поэтому просим причину и предупреждаем, что будет.
  *
- * Остатки при отмене 1С не проверяет: если продукцию уже передали дальше, склад
- * уйдёт в минус. Предупреждаем сами по тому остатку, который знаем.
+ * Если продукцию смены уже передали дальше, 1С переоткрыть не даст (отказ
+ * posting_failed с деталями). Предупреждаем об этом заранее по остатку, который
+ * знаем, чтобы администратор не искал причину в тексте отказа.
  */
 function ReopenBlock({
   shift,
@@ -1085,8 +1087,8 @@ function ReopenBlock({
           <TriangleAlert className="h-4 w-4 shrink-0" />
           <p>
             Продукции этой смены на складе уже меньше:{" "}
-            {gone.map((g) => `${g.name}, не хватает ${g.lack} ${g.unit}`).join("; ")}. После
-            переоткрытия остаток уйдёт в минус.
+            {gone.map((g) => `${g.name}, не хватает ${g.lack} ${g.unit}`).join("; ")}. 1С не даст
+            переоткрыть, пока её не вернут на склад.
           </p>
         </div>
       ) : null}

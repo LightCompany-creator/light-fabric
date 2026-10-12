@@ -12,6 +12,7 @@
 import type { Api1C } from "./api";
 import { Api1CError, Api1COfflineError } from "./client";
 import { daysAgo, localDate } from "./dates";
+import { newIdempotencyKey } from "./index";
 import type {
   CloseShiftResult,
   ConfirmSide,
@@ -37,7 +38,7 @@ import type {
   WorkshopRef,
 } from "./types";
 
-const uid = () => crypto.randomUUID();
+const uid = () => newIdempotencyKey();
 const today = () => localDate();
 const now = () => new Date().toISOString().slice(0, 19);
 const round = (n: number) => Math.round(n * 1000) / 1000;
@@ -760,10 +761,26 @@ export class Api1CMock implements Api1C {
     }
     const workshopId = shift.workshop_id ?? "w-lit";
 
-    // Если смена была отражена в учёте, 1С отменяет проведение. Остатки при этом
-    // она НЕ проверяет: если продукцию уже передали дальше, склад уйдёт в минус.
-    // Так ведёт себя типовая Бухгалтерия, приложение предупреждает об этом само.
+    // Если смена была отражена в учёте, 1С отменяет проведение. С 28.09 она
+    // проверяет остаток продукции: если её уже передали дальше, отказывает.
     if (shift.accounting?.status === "done") {
+      const gone = shift.products
+        .filter((p) => (stock[workshopId]?.[p.product_id] ?? 0) < p.qty)
+        .map((p) => ({
+          item_id: p.product_id,
+          item_name: item(p.product_id).name,
+          available: round(stock[workshopId]?.[p.product_id] ?? 0),
+          required: p.qty,
+        }));
+      if (gone.length) {
+        const g = gone[0];
+        throw new Api1CError(
+          "posting_failed",
+          `Продукцию уже передали: ${g.item_name}, на складе ${g.available} ${item(g.item_id).unit}, в смене ${g.required} ${item(g.item_id).unit}`,
+          422,
+          gone,
+        );
+      }
       for (const p of shift.products) {
         stock[workshopId][p.product_id] = round((stock[workshopId][p.product_id] ?? 0) - p.qty);
       }

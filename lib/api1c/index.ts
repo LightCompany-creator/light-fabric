@@ -46,7 +46,22 @@ export function createApi1C(credentials?: Credentials): Api1C {
   });
 }
 
-/** Ключ идемпотентности для запросов, создающих или проводящих документ. */
+/**
+ * Ключ идемпотентности для запросов, создающих документ.
+ * crypto.randomUUID браузер даёт только по HTTPS и на localhost; на сервере
+ * фабрики приложение может открываться по http://, поэтому без него обходимся:
+ * по контракту годится любая уникальная строка до 36 символов.
+ */
 export function newIdempotencyKey(): string {
-  return crypto.randomUUID();
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  const bytes = new Uint8Array(8);
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  const random = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `${Date.now().toString(36)}-${random}`;
 }

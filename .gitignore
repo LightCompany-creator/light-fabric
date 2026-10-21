@@ -66,3 +66,6 @@ next-env.d.ts
 # Статическая сборка для сервера 1С (scripts/build-static.mjs)
 /dist/
 /.static-aside/
+
+# Локальный ЦС и сертификат для проверки PWA по HTTPS (scripts/https-proxy.mjs)
+/.local/

@@ -235,3 +235,36 @@ PWA (установка на планшет иконкой, работа без 
   (`/w/shift?id=…`, `/w/transfer?id=…`), других препятствий у статики нет.
 
 Спецификация обмена и переписка с 1С лежат в папке `1С-Арсену/`.
+
+## Проверка на планшете по HTTPS (домашняя сеть)
+
+Chrome на Android ставит сайт как приложение (иконка без значка браузера,
+офлайн) только с защищённого адреса. Для проверки дома, без сервера фабрики:
+
+1. Запустить приложение: `npm run build`, затем `npm run start` (порт 3000).
+2. Один раз выпустить локальный ЦС и сертификат на адрес компьютера в сети
+   (узнать: `ipconfig`, строка IPv4 у Wi-Fi). Папка `.local/certs` в git
+   не попадает. В Git Bash:
+
+   ```bash
+   mkdir -p .local/certs && cd .local/certs && export MSYS_NO_PATHCONV=1
+   openssl req -x509 -newkey rsa:2048 -sha256 -days 3650 -nodes -keyout ca.key -out ca.crt -subj "/CN=LightFabric Local CA/O=Light Company" -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign"
+   openssl req -newkey rsa:2048 -nodes -keyout server.key -out server.csr -subj "/CN=LightFabric local/O=Light Company"
+   printf "subjectAltName=IP:192.168.0.87,IP:127.0.0.1,DNS:localhost
+extendedKeyUsage=serverAuth
+basicConstraints=CA:FALSE
+" > server.ext
+   openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 398 -sha256 -extfile server.ext
+   ```
+
+   Вместо 192.168.0.87 подставить свой адрес. Если адрес сменился, повторить
+   последние две команды.
+3. Запустить `node scripts/https-proxy.mjs`: HTTPS на :3443, сертификат ЦС
+   раздаётся на http://<адрес>:3080/.
+4. На планшете: скачать сертификат с http://<адрес>:3080/, установить его
+   в Настройки → Безопасность → Шифрование и учётные данные → Установка
+   сертификата → Сертификат ЦС. Открыть https://<адрес>:3443/w, в Chrome
+   появится «Установить LightFabric».
+
+На фабрике это не нужно: сервис 1С публикуется по HTTPS с настоящим
+сертификатом.

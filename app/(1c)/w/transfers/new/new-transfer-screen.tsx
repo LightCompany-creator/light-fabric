@@ -171,7 +171,7 @@ export function NewTransferScreen() {
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
           <Button
-            className="w-full"
+            className="h-14 w-full text-base"
             onClick={() => void send()}
             disabled={sending || !targetId || lines.length === 0 || tooMuch.length > 0}
           >

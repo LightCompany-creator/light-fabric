@@ -207,7 +207,7 @@ export function TransferScreen({ transferId }: { transferId: string }) {
           ) : (
             <>
               {!myMark ? (
-                <Button className="w-full" onClick={() => void confirm()} disabled={busy || changed}>
+                <Button className="h-14 w-full text-base" onClick={() => void confirm()} disabled={busy || changed}>
                   {busy ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (

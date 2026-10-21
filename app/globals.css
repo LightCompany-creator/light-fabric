@@ -66,6 +66,18 @@
   a {
     -webkit-tap-highlight-color: transparent;
   }
+
+  /* Цеховой раздел (app/(1c)): планшет общий, руки мокрые или в перчатках,
+     поэтому любая цель касания не ниже 44 px (Д-6). Ширина иконок-кнопок
+     и ссылок-кнопок тоже 44 px. */
+  .lf-touch :is(button, [role="button"], select, textarea),
+  .lf-touch input:not([type="checkbox"]):not([type="radio"]),
+  .lf-touch a[class~="inline-flex"] {
+    min-height: 44px;
+  }
+  .lf-touch :is(button, a):has(> svg:only-child) {
+    min-width: 44px;
+  }
 }
 
 @layer utilities {

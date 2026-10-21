@@ -561,6 +561,18 @@ video {
   a {
     -webkit-tap-highlight-color: transparent;
   }
+
+  /* Цеховой раздел (app/(1c)): планшет общий, руки мокрые или в перчатках,
+     поэтому любая цель касания не ниже 44 px (Д-6). Ширина иконок-кнопок
+     и ссылок-кнопок тоже 44 px. */
+  .lf-touch :is(button, [role="button"], select, textarea),
+  .lf-touch input:not([type="checkbox"]):not([type="radio"]),
+  .lf-touch a[class~="inline-flex"] {
+    min-height: 44px;
+  }
+  .lf-touch :is(button, a):has(> svg:only-child) {
+    min-width: 44px;
+  }
 .sr-only {
   position: absolute;
   width: 1px;
@@ -634,14 +646,14 @@ video {
 .top-\[50\%\] {
   top: 50%;
 }
-.z-50 {
-  z-index: 50;
-}
 .z-10 {
   z-index: 10;
 }
 .z-20 {
   z-index: 20;
+}
+.z-50 {
+  z-index: 50;
 }
 .col-span-2 {
   grid-column: span 2 / span 2;
@@ -650,6 +662,10 @@ video {
   margin-left: -0.25rem;
   margin-right: -0.25rem;
 }
+.-mx-4 {
+  margin-left: -1rem;
+  margin-right: -1rem;
+}
 .mx-auto {
   margin-left: auto;
   margin-right: auto;
@@ -657,10 +673,6 @@ video {
 .my-1 {
   margin-top: 0.25rem;
   margin-bottom: 0.25rem;
-}
-.-mx-4 {
-  margin-left: -1rem;
-  margin-right: -1rem;
 }
 .-ml-\[18px\] {
   margin-left: -18px;
@@ -784,11 +796,20 @@ video {
 .h-7 {
   height: 1.75rem;
 }
+.h-8 {
+  height: 2rem;
+}
 .h-80 {
   height: 20rem;
 }
 .h-9 {
   height: 2.25rem;
+}
+.h-\[52px\] {
+  height: 52px;
+}
+.h-\[60px\] {
+  height: 60px;
 }
 .h-\[var\(--radix-select-trigger-height\)\] {
   height: var(--radix-select-trigger-height);
@@ -801,15 +822,6 @@ video {
 }
 .h-screen {
   height: 100vh;
-}
-.h-\[52px\] {
-  height: 52px;
-}
-.h-8 {
-  height: 2rem;
-}
-.h-\[60px\] {
-  height: 60px;
 }
 .max-h-48 {
   max-height: 12rem;
@@ -837,6 +849,9 @@ video {
 }
 .w-10 {
   width: 2.5rem;
+}
+.w-11 {
+  width: 2.75rem;
 }
 .w-12 {
   width: 3rem;
@@ -900,9 +915,6 @@ video {
 }
 .w-full {
   width: 100%;
-}
-.w-11 {
-  width: 2.75rem;
 }
 .min-w-0 {
   min-width: 0px;
@@ -1195,6 +1207,10 @@ video {
 .border-muted-foreground\/50 {
   border-color: hsl(var(--muted-foreground) / 0.5);
 }
+.border-orange-300 {
+  --tw-border-opacity: 1;
+  border-color: rgb(253 186 116 / var(--tw-border-opacity, 1));
+}
 .border-orange-400 {
   --tw-border-opacity: 1;
   border-color: rgb(251 146 60 / var(--tw-border-opacity, 1));
@@ -1202,16 +1218,12 @@ video {
 .border-primary {
   border-color: hsl(var(--primary));
 }
-.border-transparent {
-  border-color: transparent;
-}
 .border-slate-400 {
   --tw-border-opacity: 1;
   border-color: rgb(148 163 184 / var(--tw-border-opacity, 1));
 }
-.border-orange-300 {
-  --tw-border-opacity: 1;
-  border-color: rgb(253 186 116 / var(--tw-border-opacity, 1));
+.border-transparent {
+  border-color: transparent;
 }
 .bg-accent {
   background-color: hsl(var(--accent));
@@ -1226,8 +1238,15 @@ video {
   --tw-bg-opacity: 1;
   background-color: rgb(254 243 199 / var(--tw-bg-opacity, 1));
 }
+.bg-amber-600 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(217 119 6 / var(--tw-bg-opacity, 1));
+}
 .bg-background {
   background-color: hsl(var(--background));
+}
+.bg-background\/95 {
+  background-color: hsl(var(--background) / 0.95);
 }
 .bg-black\/80 {
   background-color: rgb(0 0 0 / 0.8);
@@ -1247,6 +1266,9 @@ video {
 .bg-card {
   background-color: hsl(var(--card));
 }
+.bg-card\/95 {
+  background-color: hsl(var(--card) / 0.95);
+}
 .bg-destructive {
   background-color: hsl(var(--destructive));
 }
@@ -1260,6 +1282,10 @@ video {
   --tw-bg-opacity: 1;
   background-color: rgb(209 250 229 / var(--tw-bg-opacity, 1));
 }
+.bg-emerald-600 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(5 150 105 / var(--tw-bg-opacity, 1));
+}
 .bg-muted {
   background-color: hsl(var(--muted));
 }
@@ -1269,13 +1295,24 @@ video {
 .bg-muted\/50 {
   background-color: hsl(var(--muted) / 0.5);
 }
+.bg-muted\/60 {
+  background-color: hsl(var(--muted) / 0.6);
+}
 .bg-orange-100 {
   --tw-bg-opacity: 1;
   background-color: rgb(255 237 213 / var(--tw-bg-opacity, 1));
 }
+.bg-orange-50 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(255 247 237 / var(--tw-bg-opacity, 1));
+}
 .bg-orange-500 {
   --tw-bg-opacity: 1;
   background-color: rgb(249 115 22 / var(--tw-bg-opacity, 1));
+}
+.bg-orange-600 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(234 88 12 / var(--tw-bg-opacity, 1));
 }
 .bg-popover {
   background-color: hsl(var(--popover));
@@ -1285,6 +1322,14 @@ video {
 }
 .bg-primary\/10 {
   background-color: hsl(var(--primary) / 0.1);
+}
+.bg-red-100 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(254 226 226 / var(--tw-bg-opacity, 1));
+}
+.bg-red-600 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(220 38 38 / var(--tw-bg-opacity, 1));
 }
 .bg-rose-100 {
   --tw-bg-opacity: 1;
@@ -1299,37 +1344,6 @@ video {
 .bg-sky-100 {
   --tw-bg-opacity: 1;
   background-color: rgb(224 242 254 / var(--tw-bg-opacity, 1));
-}
-.bg-success\/10 {
-  background-color: hsl(var(--success) / 0.1);
-}
-.bg-violet-100 {
-  --tw-bg-opacity: 1;
-  background-color: rgb(237 233 254 / var(--tw-bg-opacity, 1));
-}
-.bg-white {
-  --tw-bg-opacity: 1;
-  background-color: rgb(255 255 255 / var(--tw-bg-opacity, 1));
-}
-.bg-amber-600 {
-  --tw-bg-opacity: 1;
-  background-color: rgb(217 119 6 / var(--tw-bg-opacity, 1));
-}
-.bg-emerald-600 {
-  --tw-bg-opacity: 1;
-  background-color: rgb(5 150 105 / var(--tw-bg-opacity, 1));
-}
-.bg-orange-600 {
-  --tw-bg-opacity: 1;
-  background-color: rgb(234 88 12 / var(--tw-bg-opacity, 1));
-}
-.bg-red-100 {
-  --tw-bg-opacity: 1;
-  background-color: rgb(254 226 226 / var(--tw-bg-opacity, 1));
-}
-.bg-red-600 {
-  --tw-bg-opacity: 1;
-  background-color: rgb(220 38 38 / var(--tw-bg-opacity, 1));
 }
 .bg-slate-100 {
   --tw-bg-opacity: 1;
@@ -1347,18 +1361,16 @@ video {
   --tw-bg-opacity: 1;
   background-color: rgb(51 65 85 / var(--tw-bg-opacity, 1));
 }
-.bg-muted\/60 {
-  background-color: hsl(var(--muted) / 0.6);
+.bg-success\/10 {
+  background-color: hsl(var(--success) / 0.1);
 }
-.bg-orange-50 {
+.bg-violet-100 {
   --tw-bg-opacity: 1;
-  background-color: rgb(255 247 237 / var(--tw-bg-opacity, 1));
+  background-color: rgb(237 233 254 / var(--tw-bg-opacity, 1));
 }
-.bg-background\/95 {
-  background-color: hsl(var(--background) / 0.95);
-}
-.bg-card\/95 {
-  background-color: hsl(var(--card) / 0.95);
+.bg-white {
+  --tw-bg-opacity: 1;
+  background-color: rgb(255 255 255 / var(--tw-bg-opacity, 1));
 }
 .fill-current {
   fill: currentColor;
@@ -1455,6 +1467,9 @@ video {
 .pb-3 {
   padding-bottom: 0.75rem;
 }
+.pb-32 {
+  padding-bottom: 8rem;
+}
 .pb-4 {
   padding-bottom: 1rem;
 }
@@ -1484,9 +1499,6 @@ video {
 }
 .pt-6 {
   padding-top: 1.5rem;
-}
-.pb-32 {
-  padding-bottom: 8rem;
 }
 .text-left {
   text-align: left;
@@ -1525,6 +1537,12 @@ video {
 .text-\[10px\] {
   font-size: 10px;
 }
+.text-\[13px\] {
+  font-size: 13px;
+}
+.text-\[15px\] {
+  font-size: 15px;
+}
 .text-\[17px\] {
   font-size: 17px;
 }
@@ -1547,12 +1565,6 @@ video {
 .text-xs {
   font-size: 0.75rem;
   line-height: 1rem;
-}
-.text-\[15px\] {
-  font-size: 15px;
-}
-.text-\[13px\] {
-  font-size: 13px;
 }
 .font-bold {
   font-weight: 700;
@@ -1601,6 +1613,10 @@ video {
   --tw-text-opacity: 1;
   color: rgb(146 64 14 / var(--tw-text-opacity, 1));
 }
+.text-amber-900 {
+  --tw-text-opacity: 1;
+  color: rgb(120 53 15 / var(--tw-text-opacity, 1));
+}
 .text-brand {
   color: var(--brand);
 }
@@ -1630,6 +1646,10 @@ video {
   --tw-text-opacity: 1;
   color: rgb(154 52 18 / var(--tw-text-opacity, 1));
 }
+.text-orange-900 {
+  --tw-text-opacity: 1;
+  color: rgb(124 45 18 / var(--tw-text-opacity, 1));
+}
 .text-popover-foreground {
   color: hsl(var(--popover-foreground));
 }
@@ -1638,6 +1658,10 @@ video {
 }
 .text-primary-foreground {
   color: hsl(var(--primary-foreground));
+}
+.text-red-800 {
+  --tw-text-opacity: 1;
+  color: rgb(153 27 27 / var(--tw-text-opacity, 1));
 }
 .text-rose-800 {
   --tw-text-opacity: 1;
@@ -1650,6 +1674,14 @@ video {
   --tw-text-opacity: 1;
   color: rgb(7 89 133 / var(--tw-text-opacity, 1));
 }
+.text-slate-600 {
+  --tw-text-opacity: 1;
+  color: rgb(71 85 105 / var(--tw-text-opacity, 1));
+}
+.text-slate-700 {
+  --tw-text-opacity: 1;
+  color: rgb(51 65 85 / var(--tw-text-opacity, 1));
+}
 .text-success {
   color: hsl(var(--success));
 }
@@ -1660,26 +1692,6 @@ video {
 .text-white {
   --tw-text-opacity: 1;
   color: rgb(255 255 255 / var(--tw-text-opacity, 1));
-}
-.text-amber-900 {
-  --tw-text-opacity: 1;
-  color: rgb(120 53 15 / var(--tw-text-opacity, 1));
-}
-.text-orange-900 {
-  --tw-text-opacity: 1;
-  color: rgb(124 45 18 / var(--tw-text-opacity, 1));
-}
-.text-red-800 {
-  --tw-text-opacity: 1;
-  color: rgb(153 27 27 / var(--tw-text-opacity, 1));
-}
-.text-slate-600 {
-  --tw-text-opacity: 1;
-  color: rgb(71 85 105 / var(--tw-text-opacity, 1));
-}
-.text-slate-700 {
-  --tw-text-opacity: 1;
-  color: rgb(51 65 85 / var(--tw-text-opacity, 1));
 }
 .underline {
   text-decoration-line: underline;
@@ -1898,6 +1910,10 @@ video {
 .hover\:bg-muted\/60:hover {
   background-color: hsl(var(--muted) / 0.6);
 }
+.hover\:bg-orange-100:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(255 237 213 / var(--tw-bg-opacity, 1));
+}
 .hover\:bg-primary\/80:hover {
   background-color: hsl(var(--primary) / 0.8);
 }
@@ -1909,10 +1925,6 @@ video {
 }
 .hover\:bg-secondary\/80:hover {
   background-color: hsl(var(--secondary) / 0.8);
-}
-.hover\:bg-orange-100:hover {
-  --tw-bg-opacity: 1;
-  background-color: rgb(255 237 213 / var(--tw-bg-opacity, 1));
 }
 .hover\:text-accent-foreground:hover {
   color: hsl(var(--accent-foreground));
@@ -2164,16 +2176,16 @@ video {
     bottom: 1.5rem;
   }
 
+  .sm\:col-span-1 {
+    grid-column: span 1 / span 1;
+  }
+
   .sm\:col-span-2 {
     grid-column: span 2 / span 2;
   }
 
   .sm\:col-span-3 {
     grid-column: span 3 / span 3;
-  }
-
-  .sm\:col-span-1 {
-    grid-column: span 1 / span 1;
   }
 
   .sm\:mr-2 {
@@ -2186,10 +2198,6 @@ video {
 
   .sm\:inline {
     display: inline;
-  }
-
-  .sm\:w-auto {
-    width: auto;
   }
 
   .sm\:max-w-sm {
@@ -2535,4 +2543,4 @@ video {
 }.__variable_d39526 {--font-mono: '__JetBrains_Mono_d39526', '__JetBrains_Mono_Fallback_d39526'
 }
 
-</style><meta name="theme-color" content="#214A8C"><title>Вход в LightFabric</title><meta name="description" content="MES-система для производства Light Company"><meta name="application-name" content="LightFabric"><link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="LightFabric"><link href="/splash/ipad-pro-129-portrait.png" media="(device-width: 1024px) and (device-height: 1366px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/ipad-pro-129-landscape.png" media="(device-width: 1366px) and (device-height: 1024px) and (orientation: landscape)" rel="apple-touch-startup-image"><link href="/splash/ipad-pro-11-portrait.png" media="(device-width: 834px) and (device-height: 1194px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/ipad-pro-11-landscape.png" media="(device-width: 1194px) and (device-height: 834px) and (orientation: landscape)" rel="apple-touch-startup-image"><link href="/splash/ipad-102-portrait.png" media="(device-width: 810px) and (device-height: 1080px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/ipad-102-landscape.png" media="(device-width: 1080px) and (device-height: 810px) and (orientation: landscape)" rel="apple-touch-startup-image"><link href="/splash/ipad-mini-portrait.png" media="(device-width: 744px) and (device-height: 1133px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/ipad-mini-landscape.png" media="(device-width: 1133px) and (device-height: 744px) and (orientation: landscape)" rel="apple-touch-startup-image"><link href="/splash/iphone-pro-max-portrait.png" media="(device-width: 430px) and (device-height: 932px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/iphone-portrait.png" media="(device-width: 390px) and (device-height: 844px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/iphone-se-portrait.png" media="(device-width: 375px) and (device-height: 667px) and (orientation: portrait)" rel="apple-touch-startup-image"><meta name="apple-mobile-web-app-status-bar-style" content="default"><link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="16x16"><link rel="icon" href="/icon.png?8211e8058e000366" type="image/png" sizes="512x512"><link rel="apple-touch-icon" href="/apple-icon.png?64595ba7f61520aa" type="image/png" sizes="180x180"></head><body class="font-sans"><div class="min-h-screen bg-muted/30 px-4 py-6"><div class="mx-auto flex min-h-[80vh] max-w-md items-center"><div class="rounded-lg border bg-card text-card-foreground shadow-sm w-full"><div class="flex flex-col p-6 space-y-1 text-center"><p class="font-mono text-xs uppercase tracking-wider text-muted-foreground">Light Company</p><div class="tracking-tight text-3xl font-bold text-brand">LightFabric</div><div class="text-sm text-muted-foreground">Вход по учётной записи 1С</div></div><div class="p-6 pt-0"><form class="space-y-4"><div class="space-y-1.5"><label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" for="login">Пользователь 1С</label><input class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm" id="login" autocomplete="username" autocapitalize="off" required="" placeholder="цех_литейка" name="login" value=""></div><div class="space-y-1.5"><label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" for="password">Пароль</label><input type="password" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm" id="password" autocomplete="current-password" required="" name="password" value=""></div><button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full" type="submit">Войти</button><p class="rounded-md bg-muted p-3 text-xs text-muted-foreground">Сервис 1С ещё не подключён: работает заглушка по контракту этапа 1. Подойдёт любой логин и пароль.</p></form></div></div></div></div><next-route-announcer style="position: absolute;"></next-route-announcer></body></html>
+</style><meta name="theme-color" content="#214A8C"><title>Вход в LightFabric</title><meta name="description" content="MES-система для производства Light Company"><meta name="application-name" content="LightFabric"><link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="LightFabric"><link href="/splash/ipad-pro-129-portrait.png" media="(device-width: 1024px) and (device-height: 1366px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/ipad-pro-129-landscape.png" media="(device-width: 1366px) and (device-height: 1024px) and (orientation: landscape)" rel="apple-touch-startup-image"><link href="/splash/ipad-pro-11-portrait.png" media="(device-width: 834px) and (device-height: 1194px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/ipad-pro-11-landscape.png" media="(device-width: 1194px) and (device-height: 834px) and (orientation: landscape)" rel="apple-touch-startup-image"><link href="/splash/ipad-102-portrait.png" media="(device-width: 810px) and (device-height: 1080px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/ipad-102-landscape.png" media="(device-width: 1080px) and (device-height: 810px) and (orientation: landscape)" rel="apple-touch-startup-image"><link href="/splash/ipad-mini-portrait.png" media="(device-width: 744px) and (device-height: 1133px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/ipad-mini-landscape.png" media="(device-width: 1133px) and (device-height: 744px) and (orientation: landscape)" rel="apple-touch-startup-image"><link href="/splash/iphone-pro-max-portrait.png" media="(device-width: 430px) and (device-height: 932px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/iphone-portrait.png" media="(device-width: 390px) and (device-height: 844px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/iphone-se-portrait.png" media="(device-width: 375px) and (device-height: 667px) and (orientation: portrait)" rel="apple-touch-startup-image"><meta name="apple-mobile-web-app-status-bar-style" content="default"><link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="16x16"><link rel="icon" href="/icon.png?8211e8058e000366" type="image/png" sizes="512x512"><link rel="apple-touch-icon" href="/apple-icon.png?64595ba7f61520aa" type="image/png" sizes="180x180"></head><body class="font-sans"><div class="lf-touch min-h-screen bg-muted/30 px-4 py-6"><div class="mx-auto flex min-h-[80vh] max-w-md items-center"><div class="rounded-lg border bg-card text-card-foreground shadow-sm w-full"><div class="flex flex-col p-6 space-y-1 text-center"><p class="font-mono text-xs uppercase tracking-wider text-muted-foreground">Light Company</p><div class="tracking-tight text-3xl font-bold text-brand">LightFabric</div><div class="text-sm text-muted-foreground">Вход по учётной записи 1С</div></div><div class="p-6 pt-0"><form class="space-y-4"><div class="space-y-1.5"><label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" for="login">Пользователь 1С</label><input class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm" id="login" autocomplete="username" autocapitalize="off" required="" placeholder="цех_литейка" name="login" value=""></div><div class="space-y-1.5"><label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" for="password">Пароль</label><input type="password" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm" id="password" autocomplete="current-password" required="" name="password" value=""></div><button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 h-14 w-full text-base" type="submit">Войти</button><p class="rounded-md bg-muted p-3 text-xs text-muted-foreground">Сервис 1С ещё не подключён: работает заглушка по контракту этапа 1. Подойдёт любой логин и пароль.</p></form></div></div></div></div><next-route-announcer style="position: absolute;"></next-route-announcer></body></html>

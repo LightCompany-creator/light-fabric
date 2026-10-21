@@ -83,7 +83,7 @@ export function EnterForm() {
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-          <Button type="submit" className="w-full" disabled={pending || status === "loading"}>
+          <Button type="submit" className="h-14 w-full text-base" disabled={pending || status === "loading"}>
             {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Войти
           </Button>

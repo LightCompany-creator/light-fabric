@@ -92,7 +92,7 @@ export function ShiftsHistoryScreen() {
         {PERIODS.map((p) => (
           <Button
             key={p.value}
-            size="sm"
+            className="h-11 rounded-full px-5"
             variant={period === p.value ? "default" : "outline"}
             onClick={() => setPeriod(p.value)}
           >

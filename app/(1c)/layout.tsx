@@ -7,7 +7,8 @@ import { Api1CProvider } from "@/lib/api1c/provider";
 export default function Layout1C({ children }: { children: ReactNode }) {
   return (
     <Api1CProvider>
-      <div className="min-h-screen bg-muted/30 px-4 py-6">{children}</div>
+      {/* lf-touch: все цели касания в цеховом разделе не ниже 44 px (правило в globals.css, Д-6). */}
+      <div className="lf-touch min-h-screen bg-muted/30 px-4 py-6">{children}</div>
     </Api1CProvider>
   );
 }

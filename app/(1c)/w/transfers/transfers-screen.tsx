@@ -86,14 +86,14 @@ export function TransfersScreen() {
 
       <div className="flex gap-2">
         <Button
-          size="sm"
+          className="h-11 rounded-full px-5"
           variant={direction === "in" ? "default" : "outline"}
           onClick={() => setDirection("in")}
         >
           Входящие
         </Button>
         <Button
-          size="sm"
+          className="h-11 rounded-full px-5"
           variant={direction === "out" ? "default" : "outline"}
           onClick={() => setDirection("out")}
         >

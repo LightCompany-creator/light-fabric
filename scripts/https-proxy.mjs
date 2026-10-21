@@ -28,6 +28,7 @@ const DIR = opt("--certs", ".local/certs");
 const key = fs.readFileSync(path.join(DIR, "server.key"));
 const cert = fs.readFileSync(path.join(DIR, "server.crt"));
 const caPath = path.join(DIR, "ca.crt");
+const caDerPath = path.join(DIR, "ca.cer");
 
 /** Адреса компьютера в локальной сети, чтобы напечатать готовые ссылки. */
 const lanAddresses = Object.values(os.networkInterfaces())
@@ -63,20 +64,25 @@ https.createServer({ key, cert }, forward).listen(PORT, "0.0.0.0", () => {
 // Сертификат ЦС раздаём по обычному http: планшет скачивает его отсюда один раз.
 http
   .createServer((req, res) => {
-    if (req.url === "/lightfabric-ca.crt") {
+    // Один и тот же сертификат ЦС в двух форматах: PEM (.crt) и DER (.cer),
+    // разные оболочки Android принимают разные.
+    const file = req.url === "/lightfabric-ca.crt" ? caPath : req.url === "/lightfabric-ca.cer" ? caDerPath : null;
+    if (file && fs.existsSync(file)) {
       res.writeHead(200, {
         "content-type": "application/x-x509-ca-cert",
-        "content-disposition": 'attachment; filename="lightfabric-ca.crt"',
+        "content-disposition": `attachment; filename="${path.basename(req.url)}"`,
       });
-      fs.createReadStream(caPath).pipe(res);
+      fs.createReadStream(file).pipe(res);
       return;
     }
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     res.end(
       `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">` +
-        `<body style="font:20px system-ui;padding:24px;line-height:1.5">` +
-        `<p><a href="/lightfabric-ca.crt">Скачать сертификат LightFabric</a></p>` +
-        `<p>После установки сертификата открыть: ` +
+        `<body style="font:20px system-ui;padding:24px;line-height:1.6">` +
+        `<p><a href="/lightfabric-ca.crt">Скачать сертификат LightFabric (.crt)</a></p>` +
+        `<p><a href="/lightfabric-ca.cer">Тот же сертификат в формате .cer</a></p>` +
+        `<p>Установка: Настройки → поиск «сертификат» → «Установка сертификата» → «Сертификат ЦС» → выбрать скачанный файл.</p>` +
+        `<p>После установки открыть: ` +
         lanAddresses.map((a) => `<a href="https://${a}:${PORT}/w">https://${a}:${PORT}/w</a>`).join(", ") +
         `</p></body>`,
     );

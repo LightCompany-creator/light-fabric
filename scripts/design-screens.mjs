@@ -86,6 +86,8 @@ const helpers = `
     sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
     btn: (t) => Array.from(document.querySelectorAll('button')).find((x) => x.textContent.trim() === t),
     click(t) { const b = this.btn(t); if (!b) throw new Error('нет кнопки ' + t); b.click(); },
+    worker: (name) => Array.from(document.querySelectorAll('button[aria-pressed]')).find((x) => x.textContent.includes(name)),
+    clickWorker(name) { const b = this.worker(name); if (!b) throw new Error('нет строки ' + name); b.click(); },
     setInput(el, v) { const s = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; s.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); },
     setSelect(el, v) { const s = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; s.call(el, v); el.dispatchEvent(new Event('change', { bubbles: true })); },
     labelOf: (i) => i.closest('div')?.querySelector('label')?.textContent ?? '',
@@ -96,7 +98,7 @@ const helpers = `
   true;
 `;
 
-async function waitFor(cdp, predicate, ms = 15000) {
+async function waitFor(cdp, predicate, ms = 30000) {
   const t0 = Date.now();
   while (Date.now() - t0 < ms) {
     try {
@@ -176,9 +178,9 @@ async function main() {
 
     // смена с данными: состав, три строки выработки, итог выпуска
     await cdp.eval("__lf.click('Открыть 1 смену'); true");
-    await waitButton(cdp, "Работник Л-01");
+    await waitFor(cdp, "return !!window.__lf && !!__lf.worker('Работник Л-01')");
     for (const who of ["Работник Л-01", "Работник Л-02", "Работник Л-03"]) {
-      await cdp.eval(`__lf.click(${JSON.stringify(who)}); true`);
+      await cdp.eval(`__lf.clickWorker(${JSON.stringify(who)}); true`);
       await sleep(250);
     }
     await waitFor(cdp, "return (document.getElementById('employee')?.options.length ?? 0) >= 4");

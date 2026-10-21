@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { describeError, useApi1C } from "@/lib/api1c/provider";
 import { useShift, type SyncStatus } from "@/lib/api1c/use-shift";
 import {
@@ -308,19 +309,39 @@ function WorkersSection({
           </span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-wrap gap-2">
-        {context.employees.map((e) => (
-          <Button
-            key={e.id}
-            size="sm"
-            variant={selected.has(e.id) ? "default" : "outline"}
-            disabled={disabled}
-            onClick={() => toggle(e.id, e.default_work_type_id)}
-          >
-            {selected.has(e.id) ? <Check className="mr-1.5 h-3.5 w-3.5" /> : null}
-            {e.name}
-          </Button>
-        ))}
+      {/* Строки 56 px на всю ширину: в перчатках по чипам промахивались (Д-1).
+          Порядок людей при отметке не меняется, чтобы строка не уезжала из-под пальца. */}
+      <CardContent className="grid gap-2 sm:grid-cols-2">
+        {context.employees.map((e) => {
+          const on = selected.has(e.id);
+          return (
+            <button
+              key={e.id}
+              type="button"
+              aria-pressed={on}
+              disabled={disabled}
+              onClick={() => toggle(e.id, e.default_work_type_id)}
+              className={cn(
+                "flex h-14 w-full items-center gap-3 rounded-md border px-3 text-left text-[17px] font-semibold transition-colors disabled:opacity-60",
+                on ? "border-primary bg-primary/10" : "border-input bg-card hover:bg-muted/60",
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-md border-2",
+                  on ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/50",
+                )}
+              >
+                {on ? <Check className="h-4 w-4" strokeWidth={3} /> : null}
+              </span>
+              <span className="min-w-0 flex-1 truncate">{e.name}</span>
+              {e.position ? (
+                <span className="shrink-0 text-sm font-medium text-muted-foreground">{e.position}</span>
+              ) : null}
+            </button>
+          );
+        })}
       </CardContent>
     </Card>
   );

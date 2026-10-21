@@ -7,10 +7,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, LogOut, RefreshCw } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { localDate } from "@/lib/api1c";
+import { StatusBadge } from "./status-badge";
 import { describeError, useApi1C } from "@/lib/api1c/provider";
 import { invalidateWorkshopContext, useWorkshopContext } from "@/lib/api1c/use-workshop-context";
 
@@ -140,7 +140,7 @@ export function Workspace() {
                       {s.number} · {s.date} · {s.shift_no} смена
                     </span>
                     <div className="flex items-center gap-2">
-                      <Badge variant="secondary">открыта</Badge>
+                      <StatusBadge kind="open" />
                       <Button size="sm" variant="outline" onClick={() => router.push(`/w/shift?id=${s.id}`)}>
                         Продолжить
                       </Button>
@@ -175,9 +175,9 @@ export function Workspace() {
               <CardTitle className="text-base">
                 Перемещения
                 {context.pending_incoming_transfers > 0 ? (
-                  <Badge className="ml-2">
+                  <StatusBadge kind="waiting-me" className="ml-2 align-middle">
                     вас ждут: {context.pending_incoming_transfers}
-                  </Badge>
+                  </StatusBadge>
                 ) : null}
               </CardTitle>
             </CardHeader>

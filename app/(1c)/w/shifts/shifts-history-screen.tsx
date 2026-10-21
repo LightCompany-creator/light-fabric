@@ -6,12 +6,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { describeError, useApi1C } from "@/lib/api1c/provider";
 import { daysAgo } from "@/lib/api1c";
 import type { ShiftHead } from "@/lib/api1c";
+import { StatusBadge } from "../status-badge";
 
 type Period = 7 | 30 | 0;
 
@@ -150,12 +150,8 @@ export function ShiftsHistoryScreen() {
                         {s.produced_total ?? 0}
                         {s.defect_total ? `, брак ${s.defect_total}` : ""}
                       </span>
-                      {s.accounting_status === "pending" ? (
-                        <Badge variant="outline">ждёт учёта</Badge>
-                      ) : null}
-                      <Badge variant={s.status === "closed" ? "secondary" : "default"}>
-                        {s.status === "closed" ? "закрыта" : "открыта"}
-                      </Badge>
+                      {s.accounting_status === "pending" ? <StatusBadge kind="pending" /> : null}
+                      <StatusBadge kind={s.status === "closed" ? "closed" : "open"} />
                     </div>
                   </CardContent>
                 </Card>

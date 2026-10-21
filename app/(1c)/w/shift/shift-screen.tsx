@@ -10,15 +10,15 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, CloudOff, Loader2, Plus, Save, Trash2, TriangleAlert } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Check, Loader2, Plus, Save, Trash2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { describeError, useApi1C } from "@/lib/api1c/provider";
-import { useShift, type SyncStatus } from "@/lib/api1c/use-shift";
+import { useShift } from "@/lib/api1c/use-shift";
+import { StatusBadge, SyncBadge } from "../status-badge";
 import {
   invalidateWorkshopContext,
   useWorkshopContext,
@@ -146,7 +146,10 @@ export function ShiftScreen({ shiftId }: { shiftId: string }) {
           <div>
             <h1 className="text-xl font-bold">
               {head?.number ?? "Смена"}
-              {closed ? <Badge className="ml-2">закрыта</Badge> : null}
+              {closed ? <StatusBadge kind="closed" className="ml-2 align-middle" /> : null}
+              {closed && shift.shift?.accounting?.status === "pending" ? (
+                <StatusBadge kind="pending" className="ml-2 align-middle" />
+              ) : null}
             </h1>
             <p className="text-sm text-muted-foreground">
               {head?.date} · {head?.shift_no} смена · {workshop?.name}
@@ -1191,27 +1194,5 @@ function ReopenBlock({
         </Button>
       </div>
     </div>
-  );
-}
-
-// ---------- индикатор сохранения ----------
-
-function SyncBadge({ status }: { status: SyncStatus }) {
-  const map: Record<SyncStatus, { text: string; variant: "secondary" | "outline" | "destructive" }> = {
-    loading: { text: "загрузка", variant: "outline" },
-    saved: { text: "сохранено в 1С", variant: "secondary" },
-    saving: { text: "сохраняю", variant: "outline" },
-    pending: { text: "не сохранено", variant: "outline" },
-    offline: { text: "нет связи, сохранено на планшете", variant: "destructive" },
-    conflict: { text: "расхождение", variant: "destructive" },
-    error: { text: "ошибка", variant: "destructive" },
-  };
-  const { text, variant } = map[status];
-  return (
-    <Badge variant={variant} className="gap-1.5">
-      {status === "saving" ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-      {status === "offline" ? <CloudOff className="h-3 w-3" /> : null}
-      {text}
-    </Badge>
   );
 }

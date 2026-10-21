@@ -8,13 +8,13 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, Loader2, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { describeError, useApi1C } from "@/lib/api1c/provider";
 import { invalidateWorkshopContext } from "@/lib/api1c/use-workshop-context";
 import type { Transfer } from "@/lib/api1c";
+import { StatusBadge } from "../status-badge";
 
 export function TransferScreen({ transferId }: { transferId: string }) {
   const router = useRouter();
@@ -118,7 +118,7 @@ export function TransferScreen({ transferId }: { transferId: string }) {
         <div>
           <h1 className="text-xl font-bold">
             {doc.from.name} → {doc.to.name}
-            {posted ? <Badge className="ml-2">проведено</Badge> : null}
+            {posted ? <StatusBadge kind="posted" className="ml-2 align-middle" /> : null}
           </h1>
           <p className="text-sm text-muted-foreground">
             {doc.number} · {doc.date.slice(0, 10)} · {iAmSender ? "вы отправитель" : "вы получатель"}
@@ -246,11 +246,11 @@ function ConfirmRow({ label, mark }: { label: string; mark: Transfer["sender_con
     <div className="flex items-center justify-between gap-3">
       <span>{label}</span>
       {mark ? (
-        <Badge variant="secondary">
+        <StatusBadge kind="confirmed">
           {mark.by}, {mark.at.slice(11, 16)}
-        </Badge>
+        </StatusBadge>
       ) : (
-        <Badge variant="outline">не подтверждено</Badge>
+        <StatusBadge kind="unconfirmed" />
       )}
     </div>
   );

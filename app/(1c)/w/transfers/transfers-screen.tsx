@@ -6,23 +6,26 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Plus } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { describeError, useApi1C } from "@/lib/api1c/provider";
 import type { TransferHead } from "@/lib/api1c";
+import { StatusBadge, type StatusKind } from "../status-badge";
 
 type Direction = "in" | "out";
 
 /** Что документ ждёт от человека прямо сейчас. */
-export function transferState(doc: TransferHead, myWorkshopId: string | undefined) {
-  if (doc.status === "posted") return { text: "проведено", mine: false, variant: "secondary" as const };
+export function transferState(
+  doc: TransferHead,
+  myWorkshopId: string | undefined,
+): { text: string; mine: boolean; kind: StatusKind } {
+  if (doc.status === "posted") return { text: "проведено", mine: false, kind: "posted" };
 
   const iAmSender = doc.from.workshop_id === myWorkshopId;
   const mySide = iAmSender ? doc.sender_confirmed : doc.receiver_confirmed;
-  if (!mySide) return { text: "ждёт вашего подтверждения", mine: true, variant: "default" as const };
+  if (!mySide) return { text: "ждёт вашего подтверждения", mine: true, kind: "waiting-me" };
 
-  return { text: "ждёт вторую сторону", mine: false, variant: "outline" as const };
+  return { text: "ждёт вторую сторону", mine: false, kind: "waiting-other" };
 }
 
 export function TransfersScreen() {
@@ -129,9 +132,9 @@ export function TransfersScreen() {
                         {doc.qty_total ? ` · всего ${doc.qty_total}` : ""}
                       </p>
                     </div>
-                    <Badge variant={state.variant} className="shrink-0">
+                    <StatusBadge kind={state.kind} className="shrink-0">
                       {state.text}
-                    </Badge>
+                    </StatusBadge>
                   </CardContent>
                 </Card>
               </Link>

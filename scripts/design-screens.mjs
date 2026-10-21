@@ -134,11 +134,16 @@ async function snap(cdp, name) {
   await cdp.eval(helpers);
   await sleep(400);
   const height = await cdp.eval("Math.max(document.documentElement.scrollHeight, document.body.scrollHeight)");
+  // Снимок во всю высоту: окно временно растягиваем до высоты страницы, чтобы
+  // прижатые к низу элементы (кнопка закрытия смены) оказались внизу снимка,
+  // а не посреди него.
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: WIDTH, height, deviceScaleFactor: 2, mobile: true });
+  await sleep(250);
   const shot = await cdp.send("Page.captureScreenshot", {
     format: "png",
-    captureBeyondViewport: true,
     clip: { x: 0, y: 0, width: WIDTH, height, scale: 1 },
   });
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: WIDTH, height: HEIGHT, deviceScaleFactor: 2, mobile: true });
   writeFileSync(join(OUT, `${name}.png`), Buffer.from(shot.data, "base64"));
   const html = await cdp.eval("'<!doctype html>' + document.documentElement.outerHTML");
   writeFileSync(join(OUT, `${name}.html`), await inlineStyles(html), "utf8");

@@ -154,10 +154,13 @@ export function Workspace() {
                       </div>
                       <StatusBadge kind="open" className="h-8 shrink-0 text-sm" />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Figure value={s.produced_total ?? 0} label="выпуск за смену" />
-                      <Figure value={s.defect_total ?? 0} label="брак" />
-                    </div>
+                    {/* Итоги по открытой смене в контракте необязательные: без них цифры не рисуем. */}
+                    {s.produced_total != null ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        <Figure value={s.produced_total} label="выпуск за смену" />
+                        <Figure value={s.defect_total ?? 0} label="брак" />
+                      </div>
+                    ) : null}
                     <Button
                       className="h-[60px] w-full text-lg"
                       onClick={() => router.push(`/w/shift?id=${s.id}`)}

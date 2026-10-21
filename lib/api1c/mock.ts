@@ -574,13 +574,18 @@ export class Api1CMock implements Api1C {
       stock: stockLines(workshopId),
       open_shifts: Array.from(shifts.values())
         .filter((s) => s.status === "open" && (s as ShiftWithWorkshop).workshop_id === workshopId)
-        .map(({ id, number, date, shift_no, status, version }) => ({
+        // Итоги по открытой смене нужны карточке рабочего места (Д-4); в контракте
+        // поля необязательные, так что 1С может их и не отдавать.
+        .map(({ id, number, date, shift_no, status, version, responsible, products }) => ({
           id,
           number,
           date,
           shift_no,
           status,
           version,
+          responsible,
+          produced_total: round(products.reduce((sum, p) => sum + p.qty, 0)),
+          defect_total: round(products.reduce((sum, p) => sum + p.defect_qty, 0)),
         })),
       transfer_targets: WORKSHOPS.filter((w) => w.id !== workshopId),
       pending_incoming_transfers: Array.from(transfers.values()).filter(

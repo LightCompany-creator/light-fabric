@@ -183,14 +183,21 @@ async function main() {
       await cdp.eval(`__lf.clickWorker(${JSON.stringify(who)}); true`);
       await sleep(250);
     }
-    await waitFor(cdp, "return (document.getElementById('employee')?.options.length ?? 0) >= 4");
+    await waitFor(cdp, "return document.querySelectorAll('[role=group] button').length >= 3");
     await cdp.eval(`(async () => {
       const $ = (id) => document.getElementById(id);
+      // Форма строки собирается кнопками-таблетками (Д-2), ищем их по тексту.
+      const pill = (t) => {
+        const b = Array.from(document.querySelectorAll('[role=group] button')).find((x) => x.textContent.includes(t));
+        if (!b) throw new Error('нет кнопки ' + t);
+        b.click();
+      };
       const row = async (who, work, product, qty, defect, machine) => {
-        __lf.setSelect($('employee'), __lf.optionValue($('employee'), who));
-        __lf.setSelect($('work-type'), __lf.optionValue($('work-type'), work));
+        pill(who);
+        await __lf.sleep(200);
+        pill(work);
         await __lf.sleep(250);
-        if (product) __lf.setSelect($('product'), __lf.optionValue($('product'), product));
+        if (product) pill(product);
         await __lf.sleep(250);
         __lf.setInput($('qty'), qty);
         if (defect) __lf.setInput($('defect'), defect);

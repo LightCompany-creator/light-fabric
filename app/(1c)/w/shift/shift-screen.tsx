@@ -362,6 +362,9 @@ function OutputsSection({
     shift.state.workers.some((w) => w.employee_id === e.id),
   );
 
+  // Форма строки собирается кнопками, а не выпадающими списками (Д-2): это самое
+  // частое действие смены, 10–30 раз подряд. Работник остаётся выбранным после
+  // добавления, вид работ берётся из его умолчания, количество очищается.
   const [employeeId, setEmployeeId] = useState("");
   const [workTypeId, setWorkTypeId] = useState("");
   const [productId, setProductId] = useState("");
@@ -370,26 +373,41 @@ function OutputsSection({
   const [machine, setMachine] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
 
-  const workType = context.work_types.find((w) => w.id === workTypeId);
+  // Пока человек ничего не выбрал, работник первый из вышедших, а вид работ его
+  // умолчание из 1С: типовую строку можно добавить, задав одно только количество.
+  const employee = workers.find((e) => e.id === employeeId) ?? workers[0];
+  const activeWorkTypeId = workTypeId || employee?.default_work_type_id || "";
+  const workType = context.work_types.find((w) => w.id === activeWorkTypeId);
   // Без продукции бывает не только простой: чистка форм, погрузка, уборка.
   const noProduct = workType ? !workType.requires_product : false;
+  const unitOf = (wt: { unit: string; requires_product: boolean } | undefined) =>
+    wt?.unit || (wt && !wt.requires_product ? "ч" : "шт");
+
+  function pickEmployee(id: string) {
+    setEmployeeId(id);
+    const picked = workers.find((e) => e.id === id);
+    if (picked?.default_work_type_id) setWorkTypeId(picked.default_work_type_id);
+    setFormError(null);
+  }
 
   function add() {
     const amount = Number(qty.replace(",", "."));
-    if (!employeeId) return setFormError("Выберите работника");
-    if (!workTypeId) return setFormError("Выберите вид работ");
+    if (!employee) return setFormError("Выберите работника");
+    if (!activeWorkTypeId) return setFormError("Выберите вид работ");
     if (!noProduct && !productId) return setFormError("Выберите продукцию");
     if (!amount || amount <= 0) return setFormError("Укажите количество");
 
     const line: ShiftOutput = {
-      employee_id: employeeId,
-      work_type_id: workTypeId,
+      employee_id: employee.id,
+      work_type_id: activeWorkTypeId,
       product_id: noProduct ? null : productId,
       qty: amount,
       defect_qty: noProduct ? 0 : Number(defectQty.replace(",", ".")) || 0,
       machine: noProduct ? undefined : machine || undefined,
     };
     shift.update({ outputs: [...shift.state.outputs, line] });
+    setEmployeeId(employee.id);
+    setWorkTypeId(employee.default_work_type_id ?? activeWorkTypeId);
     setQty("");
     setDefectQty("");
     setFormError(null);
@@ -410,105 +428,105 @@ function OutputsSection({
       <CardContent className="space-y-4">
         {shift.state.outputs.length > 0 ? (
           <div className="divide-y rounded-md border">
-            {shift.state.outputs.map((line, index) => (
-              <div key={index} className="flex items-center justify-between gap-3 p-3 text-sm">
-                <div className="min-w-0">
-                  <p className="truncate font-medium">
-                    {nameOf(line.employee_id, context.employees)}
-                  </p>
-                  <p className="truncate text-muted-foreground">
-                    {nameOf(line.work_type_id, context.work_types)}
-                    {line.product_id ? ` · ${nameOf(line.product_id, context.products)}` : ""}
-                    {line.machine ? ` · ${line.machine}` : ""}
-                  </p>
+            {shift.state.outputs.map((line, index) => {
+              const lineType = context.work_types.find((w) => w.id === line.work_type_id);
+              return (
+                <div key={index} className="flex items-center justify-between gap-3 p-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-[17px] font-semibold">
+                      {nameOf(line.employee_id, context.employees)}
+                    </p>
+                    <p className="truncate text-sm text-muted-foreground">
+                      {nameOf(line.work_type_id, context.work_types)}
+                      {line.product_id ? ` · ${nameOf(line.product_id, context.products)}` : ""}
+                      {line.machine ? ` · ${line.machine}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <span className="text-lg font-semibold tabular-nums">
+                      {line.qty}{" "}
+                      <span className="text-sm font-medium text-muted-foreground">{unitOf(lineType)}</span>
+                    </span>
+                    {line.defect_qty ? (
+                      <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive">
+                        брак {line.defect_qty}
+                      </span>
+                    ) : null}
+                    {!disabled ? (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-11 w-11"
+                        onClick={() => remove(index)}
+                        aria-label="Убрать строку"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-3">
-                  <span className="tabular-nums">
-                    {line.qty}
-                    {line.defect_qty ? `, брак ${line.defect_qty}` : ""}
-                  </span>
-                  {!disabled ? (
-                    <Button variant="ghost" size="icon" onClick={() => remove(index)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">Строк пока нет.</p>
         )}
 
         {!disabled ? (
-          <div className="space-y-3 rounded-md border border-dashed p-3">
+          <div className="space-y-4 rounded-md border border-dashed bg-muted/30 p-3">
             {workers.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Сначала отметьте, кто вышел на смену.
               </p>
             ) : (
               <>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="employee">Работник</Label>
-                    <select
-                      id="employee"
-                      className={selectClass}
-                      value={employeeId}
-                      onChange={(e) => setEmployeeId(e.target.value)}
-                    >
-                      <option value="">Выберите</option>
-                      {workers.map((e) => (
-                        <option key={e.id} value={e.id}>
-                          {e.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                <PillGroup label="Работник" id="pick-employee">
+                  {workers.map((e) => (
+                    <Pill key={e.id} on={employee?.id === e.id} onClick={() => pickEmployee(e.id)}>
+                      {e.name}
+                    </Pill>
+                  ))}
+                </PillGroup>
 
-                  <div className="space-y-1.5">
-                    <Label htmlFor="work-type">Вид работ</Label>
-                    <select
-                      id="work-type"
-                      className={selectClass}
-                      value={workTypeId}
-                      onChange={(e) => setWorkTypeId(e.target.value)}
+                <PillGroup label="Вид работ" id="pick-work-type">
+                  {context.work_types.map((w) => (
+                    <Pill
+                      key={w.id}
+                      on={activeWorkTypeId === w.id}
+                      onClick={() => {
+                        setWorkTypeId(w.id);
+                        setFormError(null);
+                      }}
                     >
-                      <option value="">Выберите</option>
-                      {context.work_types.map((w) => (
-                        <option key={w.id} value={w.id}>
-                          {w.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                      {w.name}
+                    </Pill>
+                  ))}
+                </PillGroup>
 
-                  {!noProduct ? (
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <Label htmlFor="product">Продукция</Label>
-                      <select
-                        id="product"
-                        className={selectClass}
-                        value={productId}
-                        onChange={(e) => setProductId(e.target.value)}
+                {!noProduct ? (
+                  <PillGroup label="Продукция" id="pick-product">
+                    {context.products.map((p) => (
+                      <Pill
+                        key={p.id}
+                        on={productId === p.id}
+                        onClick={() => {
+                          setProductId(p.id);
+                          setFormError(null);
+                        }}
                       >
-                        <option value="">Выберите</option>
-                        {context.products.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.article}, {p.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : null}
+                        {p.article}, {p.name}
+                      </Pill>
+                    ))}
+                  </PillGroup>
+                ) : null}
 
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   <div className="space-y-1.5">
-                    <Label htmlFor="qty">
-                      Количество, {workType?.unit || (noProduct ? "ч" : "шт")}
-                    </Label>
+                    <Label htmlFor="qty">Количество, {unitOf(workType)}</Label>
                     <Input
                       id="qty"
                       inputMode="decimal"
+                      className="h-[52px] text-xl font-semibold"
                       value={qty}
                       onChange={(e) => setQty(e.target.value)}
                     />
@@ -520,6 +538,7 @@ function OutputsSection({
                       <Input
                         id="defect"
                         inputMode="decimal"
+                        className="h-[52px] text-lg"
                         value={defectQty}
                         onChange={(e) => setDefectQty(e.target.value)}
                       />
@@ -527,10 +546,11 @@ function OutputsSection({
                   ) : null}
 
                   {!noProduct ? (
-                    <div className="space-y-1.5 sm:col-span-2">
+                    <div className="col-span-2 space-y-1.5 sm:col-span-1">
                       <Label htmlFor="machine">Станок, необязательно</Label>
                       <Input
                         id="machine"
+                        className="h-[52px] text-lg"
                         value={machine}
                         onChange={(e) => setMachine(e.target.value)}
                       />
@@ -540,8 +560,8 @@ function OutputsSection({
 
                 {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
 
-                <Button onClick={add} className="w-full sm:w-auto">
-                  <Plus className="mr-2 h-4 w-4" />
+                <Button onClick={add} className="h-14 w-full text-[17px]">
+                  <Plus className="mr-2 h-5 w-5" />
                   Добавить строку
                 </Button>
               </>
@@ -550,6 +570,36 @@ function OutputsSection({
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+/** Группа кнопок-таблеток: один выбор из нескольких, 44 px под палец. */
+function PillGroup({ label, id, children }: { label: string; id: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <p id={id} className="text-sm font-medium text-muted-foreground">
+        {label}
+      </p>
+      <div role="group" aria-labelledby={id} className="flex flex-wrap gap-2">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Pill({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-11 items-center rounded-full border px-4 text-[15px] font-medium transition-colors",
+        on ? "border-primary bg-primary text-primary-foreground" : "border-input bg-card text-primary hover:bg-muted/60",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 

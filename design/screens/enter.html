@@ -581,6 +581,9 @@ video {
 .relative {
   position: relative;
 }
+.sticky {
+  position: sticky;
+}
 .inset-0 {
   inset: 0px;
 }
@@ -634,6 +637,12 @@ video {
 .z-50 {
   z-index: 50;
 }
+.z-10 {
+  z-index: 10;
+}
+.z-20 {
+  z-index: 20;
+}
 .col-span-2 {
   grid-column: span 2 / span 2;
 }
@@ -648,6 +657,10 @@ video {
 .my-1 {
   margin-top: 0.25rem;
   margin-bottom: 0.25rem;
+}
+.-mx-4 {
+  margin-left: -1rem;
+  margin-right: -1rem;
 }
 .-ml-\[18px\] {
   margin-left: -18px;
@@ -987,6 +1000,9 @@ video {
 .select-none {
   user-select: none;
 }
+.scroll-mt-16 {
+  scroll-margin-top: 4rem;
+}
 .list-disc {
   list-style-type: disc;
 }
@@ -1101,6 +1117,9 @@ video {
 }
 .overflow-hidden {
   overflow: hidden;
+}
+.overflow-x-auto {
+  overflow-x: auto;
 }
 .overflow-y-auto {
   overflow-y: auto;
@@ -1335,6 +1354,12 @@ video {
   --tw-bg-opacity: 1;
   background-color: rgb(255 247 237 / var(--tw-bg-opacity, 1));
 }
+.bg-background\/95 {
+  background-color: hsl(var(--background) / 0.95);
+}
+.bg-card\/95 {
+  background-color: hsl(var(--card) / 0.95);
+}
 .fill-current {
   fill: currentColor;
 }
@@ -1459,6 +1484,9 @@ video {
 }
 .pt-6 {
   padding-top: 1.5rem;
+}
+.pb-32 {
+  padding-bottom: 8rem;
 }
 .text-left {
   text-align: left;
@@ -1656,6 +1684,9 @@ video {
 .underline {
   text-decoration-line: underline;
 }
+.no-underline {
+  text-decoration-line: none;
+}
 .underline-offset-4 {
   text-underline-offset: 4px;
 }
@@ -1703,6 +1734,11 @@ video {
 }
 .filter {
   filter: var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow);
+}
+.backdrop-blur {
+  --tw-backdrop-blur: blur(8px);
+  -webkit-backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);
+  backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);
 }
 .transition {
   transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
@@ -1758,6 +1794,9 @@ video {
 .font-mono-tabular {
     font-variant-numeric: tabular-nums;
   }
+.\[scrollbar-width\:none\] {
+  scrollbar-width: none;
+}
 
 /* Тач-устройства: увеличиваем зону нажатия до 44px (Apple HIG / WCAG 2.5.5).
    Целимся точечно в кнопки и формы — десктоп с мышью не трогаем. */
@@ -2332,6 +2371,9 @@ video {
     padding-left: 2.5rem;
     padding-right: 2.5rem;
   }
+}
+.\[\&\:\:-webkit-scrollbar\]\:hidden::-webkit-scrollbar {
+  display: none;
 }
 .\[\&\:has\(\[role\=checkbox\]\)\]\:pr-0:has([role=checkbox]) {
   padding-right: 0px;

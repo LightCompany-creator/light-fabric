@@ -135,7 +135,7 @@ export function ShiftScreen({ shiftId }: { shiftId: string }) {
     shift.state.outputs.some((o) => o.product_id) && shift.state.products.length === 0;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 pb-24">
+    <div className="mx-auto max-w-3xl space-y-4 pb-32">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" asChild>
@@ -166,6 +166,8 @@ export function ShiftScreen({ shiftId }: { shiftId: string }) {
           ) : null}
         </div>
       </header>
+
+      <SectionNav shift={shift} context={context} closed={closed} />
 
       {shift.sync === "conflict" ? (
         <Card className="border-destructive">
@@ -201,6 +203,62 @@ export function ShiftScreen({ shiftId }: { shiftId: string }) {
         context={context}
       />
     </div>
+  );
+}
+
+// ---------- полоса разделов ----------
+
+/**
+ * Якоря к блокам смены с цифрами заполнения (Д-5): блоков шесть, друг под другом,
+ * и прокрутка в перчатках утомляет. Полоса липнет к верху экрана, цифры
+ * показывают, что уже внесено.
+ */
+function SectionNav({
+  shift,
+  context,
+  closed,
+}: {
+  shift: ReturnType<typeof useShift>;
+  context: WorkshopContext;
+  closed: boolean;
+}) {
+  const { workers, outputs, products, materials } = shift.state;
+  const basis = products.length > 0 ? products : suggestProducts(outputs);
+  const produced = basis.reduce((sum, p) => sum + p.qty, 0);
+  const materialLines = (materials.length > 0 ? materials : materialsBySpec(basis, context)).length;
+
+  const items: { id: string; label: string; count: number | null }[] = [
+    { id: "who", label: "Кто вышел", count: workers.length },
+    { id: "out", label: "Выработка", count: outputs.length },
+    { id: "total", label: "Итог", count: produced },
+    { id: "mat", label: "Материалы", count: materialLines },
+    { id: "close", label: closed ? "Закрыта" : "Закрыть", count: null },
+  ];
+
+  const go = (id: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  return (
+    <nav
+      aria-label="Разделы смены"
+      className="sticky top-0 z-10 -mx-4 bg-background/95 px-4 py-2 backdrop-blur"
+    >
+      <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {items.map((it) => (
+          <a
+            key={it.id}
+            href={`#${it.id}`}
+            onClick={go(it.id)}
+            className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-input bg-card px-4 text-[15px] font-medium text-primary no-underline hover:bg-muted/60"
+          >
+            {it.label}
+            {it.count !== null ? <b className="font-bold tabular-nums">{it.count}</b> : null}
+          </a>
+        ))}
+      </div>
+    </nav>
   );
 }
 
@@ -303,7 +361,7 @@ function WorkersSection({
   }
 
   return (
-    <Card>
+    <Card id="who" className="scroll-mt-16">
       <CardHeader className="pb-3">
         <CardTitle className="text-base">
           Кто вышел
@@ -424,7 +482,7 @@ function OutputsSection({
     list.find((x) => x.id === id)?.name ?? "";
 
   return (
-    <Card>
+    <Card id="out" className="scroll-mt-16">
       <CardHeader className="pb-3">
         <CardTitle className="text-base">Выработка</CardTitle>
       </CardHeader>
@@ -641,7 +699,7 @@ function ProductsSection({
   const rows = shift.state.products.length > 0 ? shift.state.products : suggestion;
 
   return (
-    <Card>
+    <Card id="total" className="scroll-mt-16">
       <CardHeader className="pb-3">
         <CardTitle className="text-base">Итог выпуска</CardTitle>
       </CardHeader>
@@ -774,7 +832,7 @@ function MaterialsSection({
   // ---- закрытая смена: только чтение ----
   if (closed) {
     return (
-      <Card>
+      <Card id="mat" className="scroll-mt-16">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Материалы</CardTitle>
         </CardHeader>
@@ -803,7 +861,7 @@ function MaterialsSection({
 
   if (shown.length === 0) {
     return (
-      <Card>
+      <Card id="mat" className="scroll-mt-16">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Материалы к списанию</CardTitle>
         </CardHeader>
@@ -819,7 +877,7 @@ function MaterialsSection({
   shown.forEach((m, i) => byProduct.set(m.product_id, [...(byProduct.get(m.product_id) ?? []), i]));
 
   return (
-    <Card className={shortage.length ? "border-destructive" : undefined}>
+    <Card id="mat" className={cn("scroll-mt-16", shortage.length ? "border-destructive" : undefined)}>
       <CardHeader className="pb-3">
         <CardTitle className="text-base">
           Материалы к списанию
@@ -962,7 +1020,7 @@ function CloseSection({
     ].filter(Boolean);
 
     return (
-      <Card>
+      <Card id="close" className="scroll-mt-16">
         <CardContent className="space-y-3 pt-6 text-sm">
           <p className="font-medium">Смена закрыта.</p>
 
@@ -1019,7 +1077,7 @@ function CloseSection({
   }
 
   return (
-    <Card>
+    <Card id="close" className="scroll-mt-16">
       <CardHeader className="pb-3">
         <CardTitle className="text-base">Закрытие смены</CardTitle>
       </CardHeader>
@@ -1065,18 +1123,20 @@ function CloseSection({
           </p>
         ) : null}
 
-        <Button
-          className="w-full"
-          onClick={() => void handleClose()}
-          disabled={closing || needsProducts}
-        >
-          {closing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          Закрыть смену
-        </Button>
-        <p className="text-xs text-muted-foreground">
-          После закрытия смену править нельзя. Приход продукции, списание материалов
-          и зарплату 1С отражает в учёте следом.
-        </p>
+        {/* Кнопка закрытия прижата к низу экрана (Д-5): видна без прокрутки,
+            пока смена открыта. Логика закрытия остаётся здесь же. */}
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-card/95 p-3 backdrop-blur">
+          <div className="mx-auto max-w-3xl">
+            <Button
+              className="h-[60px] w-full text-lg"
+              onClick={() => void handleClose()}
+              disabled={closing || needsProducts}
+            >
+              {closing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+              Закрыть смену
+            </Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

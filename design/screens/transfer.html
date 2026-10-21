@@ -581,6 +581,9 @@ video {
 .relative {
   position: relative;
 }
+.sticky {
+  position: sticky;
+}
 .inset-0 {
   inset: 0px;
 }
@@ -634,6 +637,12 @@ video {
 .z-50 {
   z-index: 50;
 }
+.z-10 {
+  z-index: 10;
+}
+.z-20 {
+  z-index: 20;
+}
 .col-span-2 {
   grid-column: span 2 / span 2;
 }
@@ -648,6 +657,10 @@ video {
 .my-1 {
   margin-top: 0.25rem;
   margin-bottom: 0.25rem;
+}
+.-mx-4 {
+  margin-left: -1rem;
+  margin-right: -1rem;
 }
 .-ml-\[18px\] {
   margin-left: -18px;
@@ -987,6 +1000,9 @@ video {
 .select-none {
   user-select: none;
 }
+.scroll-mt-16 {
+  scroll-margin-top: 4rem;
+}
 .list-disc {
   list-style-type: disc;
 }
@@ -1101,6 +1117,9 @@ video {
 }
 .overflow-hidden {
   overflow: hidden;
+}
+.overflow-x-auto {
+  overflow-x: auto;
 }
 .overflow-y-auto {
   overflow-y: auto;
@@ -1335,6 +1354,12 @@ video {
   --tw-bg-opacity: 1;
   background-color: rgb(255 247 237 / var(--tw-bg-opacity, 1));
 }
+.bg-background\/95 {
+  background-color: hsl(var(--background) / 0.95);
+}
+.bg-card\/95 {
+  background-color: hsl(var(--card) / 0.95);
+}
 .fill-current {
   fill: currentColor;
 }
@@ -1459,6 +1484,9 @@ video {
 }
 .pt-6 {
   padding-top: 1.5rem;
+}
+.pb-32 {
+  padding-bottom: 8rem;
 }
 .text-left {
   text-align: left;
@@ -1656,6 +1684,9 @@ video {
 .underline {
   text-decoration-line: underline;
 }
+.no-underline {
+  text-decoration-line: none;
+}
 .underline-offset-4 {
   text-underline-offset: 4px;
 }
@@ -1703,6 +1734,11 @@ video {
 }
 .filter {
   filter: var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow);
+}
+.backdrop-blur {
+  --tw-backdrop-blur: blur(8px);
+  -webkit-backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);
+  backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);
 }
 .transition {
   transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
@@ -1758,6 +1794,9 @@ video {
 .font-mono-tabular {
     font-variant-numeric: tabular-nums;
   }
+.\[scrollbar-width\:none\] {
+  scrollbar-width: none;
+}
 
 /* Тач-устройства: увеличиваем зону нажатия до 44px (Apple HIG / WCAG 2.5.5).
    Целимся точечно в кнопки и формы — десктоп с мышью не трогаем. */
@@ -2333,6 +2372,9 @@ video {
     padding-right: 2.5rem;
   }
 }
+.\[\&\:\:-webkit-scrollbar\]\:hidden::-webkit-scrollbar {
+  display: none;
+}
 .\[\&\:has\(\[role\=checkbox\]\)\]\:pr-0:has([role=checkbox]) {
   padding-right: 0px;
 }
@@ -2493,4 +2535,4 @@ video {
 }.__variable_d39526 {--font-mono: '__JetBrains_Mono_d39526', '__JetBrains_Mono_Fallback_d39526'
 }
 
-</style><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover"><meta name="theme-color" content="#214A8C"><meta charset="utf-8"><title>Передача</title><meta name="description" content="MES-система для производства Light Company"><meta name="application-name" content="LightFabric"><link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="LightFabric"><link href="/splash/ipad-pro-129-portrait.png" media="(device-width: 1024px) and (device-height: 1366px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/ipad-pro-129-landscape.png" media="(device-width: 1366px) and (device-height: 1024px) and (orientation: landscape)" rel="apple-touch-startup-image"><link href="/splash/ipad-pro-11-portrait.png" media="(device-width: 834px) and (device-height: 1194px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/ipad-pro-11-landscape.png" media="(device-width: 1194px) and (device-height: 834px) and (orientation: landscape)" rel="apple-touch-startup-image"><link href="/splash/ipad-102-portrait.png" media="(device-width: 810px) and (device-height: 1080px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/ipad-102-landscape.png" media="(device-width: 1080px) and (device-height: 810px) and (orientation: landscape)" rel="apple-touch-startup-image"><link href="/splash/ipad-mini-portrait.png" media="(device-width: 744px) and (device-height: 1133px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/ipad-mini-landscape.png" media="(device-width: 1133px) and (device-height: 744px) and (orientation: landscape)" rel="apple-touch-startup-image"><link href="/splash/iphone-pro-max-portrait.png" media="(device-width: 430px) and (device-height: 932px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/iphone-portrait.png" media="(device-width: 390px) and (device-height: 844px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/iphone-se-portrait.png" media="(device-width: 375px) and (device-height: 667px) and (orientation: portrait)" rel="apple-touch-startup-image"><meta name="apple-mobile-web-app-status-bar-style" content="default"><link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="16x16"><link rel="icon" href="/icon.png?8211e8058e000366" type="image/png" sizes="512x512"><link rel="apple-touch-icon" href="/apple-icon.png?64595ba7f61520aa" type="image/png" sizes="180x180"></head><body class="font-sans"><div class="min-h-screen bg-muted/30 px-4 py-6"><div class="mx-auto max-w-3xl space-y-4 pb-24"><header class="flex items-center gap-3"><a aria-label="Назад" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-10 w-10" href="/w/transfers"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-left h-4 w-4" aria-hidden="true"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg></a><div><h1 class="text-xl font-bold">Литьё → Обшив</h1><p class="text-sm text-muted-foreground">0000-000141 · 2026-10-21 · вы отправитель</p></div></header><div class="rounded-lg border bg-card text-card-foreground shadow-sm"><div class="flex flex-col space-y-1.5 p-6 pb-3"><div class="font-semibold tracking-tight text-base">Позиции</div></div><div class="p-6 pt-0 space-y-3"><p class="text-sm text-muted-foreground">Пока получатель не принял, количество можно изменить: пересчитали, договорились, поправили здесь.</p><div class="grid gap-2 sm:grid-cols-[1fr_9rem]"><div class="self-center text-sm"><p class="font-medium">Галоша ЭВА 112</p><p class="text-muted-foreground">пар</p></div><input class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm" inputmode="decimal" value="50"></div></div></div><div class="rounded-lg border bg-card text-card-foreground shadow-sm"><div class="flex flex-col space-y-1.5 p-6 pb-3"><div class="font-semibold tracking-tight text-base">Подтверждения</div></div><div class="p-6 pt-0 space-y-3 text-sm"><div class="flex items-center justify-between gap-3"><span>Отправитель, Литьё</span><span class="inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-[13px] font-semibold bg-emerald-100 text-emerald-800">Размела, 16:22</span></div><div class="flex items-center justify-between gap-3"><span>Получатель, Обшив</span><span class="inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-[13px] font-semibold bg-slate-100 text-slate-600">не подтверждено</span></div><p class="text-muted-foreground">Вы подтвердили. Ждём вторую сторону.</p><button class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3 text-destructive"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash2 lucide-trash-2 mr-2 h-4 w-4" aria-hidden="true"><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>Удалить передачу</button></div></div></div></div><next-route-announcer style="position: absolute;"></next-route-announcer></body></html>
+</style><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover"><meta name="theme-color" content="#214A8C"><meta charset="utf-8"><title>Передача</title><meta name="description" content="MES-система для производства Light Company"><meta name="application-name" content="LightFabric"><link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="LightFabric"><link href="/splash/ipad-pro-129-portrait.png" media="(device-width: 1024px) and (device-height: 1366px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/ipad-pro-129-landscape.png" media="(device-width: 1366px) and (device-height: 1024px) and (orientation: landscape)" rel="apple-touch-startup-image"><link href="/splash/ipad-pro-11-portrait.png" media="(device-width: 834px) and (device-height: 1194px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/ipad-pro-11-landscape.png" media="(device-width: 1194px) and (device-height: 834px) and (orientation: landscape)" rel="apple-touch-startup-image"><link href="/splash/ipad-102-portrait.png" media="(device-width: 810px) and (device-height: 1080px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/ipad-102-landscape.png" media="(device-width: 1080px) and (device-height: 810px) and (orientation: landscape)" rel="apple-touch-startup-image"><link href="/splash/ipad-mini-portrait.png" media="(device-width: 744px) and (device-height: 1133px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/ipad-mini-landscape.png" media="(device-width: 1133px) and (device-height: 744px) and (orientation: landscape)" rel="apple-touch-startup-image"><link href="/splash/iphone-pro-max-portrait.png" media="(device-width: 430px) and (device-height: 932px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/iphone-portrait.png" media="(device-width: 390px) and (device-height: 844px) and (orientation: portrait)" rel="apple-touch-startup-image"><link href="/splash/iphone-se-portrait.png" media="(device-width: 375px) and (device-height: 667px) and (orientation: portrait)" rel="apple-touch-startup-image"><meta name="apple-mobile-web-app-status-bar-style" content="default"><link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="16x16"><link rel="icon" href="/icon.png?8211e8058e000366" type="image/png" sizes="512x512"><link rel="apple-touch-icon" href="/apple-icon.png?64595ba7f61520aa" type="image/png" sizes="180x180"></head><body class="font-sans"><div class="min-h-screen bg-muted/30 px-4 py-6"><div class="mx-auto max-w-3xl space-y-4 pb-24"><header class="flex items-center gap-3"><a aria-label="Назад" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-10 w-10" href="/w/transfers"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-left h-4 w-4" aria-hidden="true"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg></a><div><h1 class="text-xl font-bold">Литьё → Обшив</h1><p class="text-sm text-muted-foreground">0000-000141 · 2026-10-21 · вы отправитель</p></div></header><div class="rounded-lg border bg-card text-card-foreground shadow-sm"><div class="flex flex-col space-y-1.5 p-6 pb-3"><div class="font-semibold tracking-tight text-base">Позиции</div></div><div class="p-6 pt-0 space-y-3"><p class="text-sm text-muted-foreground">Пока получатель не принял, количество можно изменить: пересчитали, договорились, поправили здесь.</p><div class="grid gap-2 sm:grid-cols-[1fr_9rem]"><div class="self-center text-sm"><p class="font-medium">Галоша ЭВА 112</p><p class="text-muted-foreground">пар</p></div><input class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm" inputmode="decimal" value="50"></div></div></div><div class="rounded-lg border bg-card text-card-foreground shadow-sm"><div class="flex flex-col space-y-1.5 p-6 pb-3"><div class="font-semibold tracking-tight text-base">Подтверждения</div></div><div class="p-6 pt-0 space-y-3 text-sm"><div class="flex items-center justify-between gap-3"><span>Отправитель, Литьё</span><span class="inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-[13px] font-semibold bg-emerald-100 text-emerald-800">Размела, 16:25</span></div><div class="flex items-center justify-between gap-3"><span>Получатель, Обшив</span><span class="inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-[13px] font-semibold bg-slate-100 text-slate-600">не подтверждено</span></div><p class="text-muted-foreground">Вы подтвердили. Ждём вторую сторону.</p><button class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3 text-destructive"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash2 lucide-trash-2 mr-2 h-4 w-4" aria-hidden="true"><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>Удалить передачу</button></div></div></div></div><next-route-announcer style="position: absolute;"></next-route-announcer></body></html>

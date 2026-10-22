@@ -58,16 +58,16 @@ export function createApi1C(credentials?: Credentials): Api1C {
  * чтобы на демо видеть обе стороны передачи.
  */
 function mockWorkshopsFor(login: string): string[] | undefined {
-  // Латиница тоже: на планшете часто нет русской раскладки.
-  if (login.includes("производ") || login.includes("proizv") || login.includes("manager")) {
+  // Латиница тоже: на планшете часто нет русской раскладки. Литейка ведёт четыре
+  // участка Литейного цеха одной учётной записью (lit), как у Арсена в 1С.
+  const fourSections = ["производ", "proizv", "manager", "лит", "lit"];
+  if (fourSections.some((k) => login.includes(k))) {
     return ["w-lit", "w-lit-pvc", "w-pack-eva", "w-pack-pvc"];
   }
   const byKeyword: [string, string][] = [
     ["упак", "w-pack-eva"],
     ["pack", "w-pack-eva"],
     ["upak", "w-pack-eva"],
-    ["лит", "w-lit"],
-    ["lit", "w-lit"],
     ["крой", "w-cut"],
     ["kroy", "w-cut"],
     ["cut", "w-cut"],

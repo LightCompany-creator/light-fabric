@@ -26,7 +26,12 @@ export function createApi1C(credentials?: Credentials): Api1C {
     // чтобы проверить переоткрытие смены. В 1С это решает сам пользователь.
     const login = (credentials?.login ?? "").toLowerCase();
     const isAdmin = login.includes("админ") || login.includes("admin");
-    return new Api1CMock({ isAdmin, userName: isAdmin ? "Администратор" : undefined });
+    const manager = login.includes("производ");
+    return new Api1CMock({
+      isAdmin,
+      userName: isAdmin ? "Администратор" : manager ? "Начальник производства" : undefined,
+      workshopIds: isAdmin ? undefined : mockWorkshopsFor(login),
+    });
   }
   if (!credentials) {
     // До входа клиент существует, но любой запрос честно отвечает «нужен вход».
@@ -44,6 +49,28 @@ export function createApi1C(credentials?: Credentials): Api1C {
     baseUrl,
     getAuthHeader: () => basicAuthHeader(credentials.login, credentials.password),
   });
+}
+
+/**
+ * Цеха пользователя заглушки по логину. В 1С это решает привязка учётной записи
+ * к подразделениям: у начальника цеха один цех, у начальника производства
+ * несколько (Литейка ЭВА и ПВХ, Упаковка ЭВА и ПВХ), у прочих логинов все,
+ * чтобы на демо видеть обе стороны передачи.
+ */
+function mockWorkshopsFor(login: string): string[] | undefined {
+  if (login.includes("производ")) return ["w-lit", "w-lit-pvc", "w-pack-eva", "w-pack-pvc"];
+  const byKeyword: [string, string][] = [
+    ["упак", "w-pack-eva"],
+    ["лит", "w-lit"],
+    ["крой", "w-cut"],
+    ["швей", "w-sew"],
+    ["обшив", "w-assy"],
+    ["кле", "w-glu"],
+    ["марк", "w-mark"],
+    ["склад", "w-ship"],
+  ];
+  const hit = byKeyword.find(([keyword]) => login.includes(keyword));
+  return hit ? [hit[1]] : undefined;
 }
 
 /**

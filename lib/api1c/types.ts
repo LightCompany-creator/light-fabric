@@ -50,13 +50,22 @@ export type ApiErrorBody = {
 
 // ---------- справочники ----------
 
-export type WarehouseRef = { id: Id; name: string };
+/**
+ * Роль склада у цеха (предложение v0.3, `1С-Арсену/Дополнение_v0.3_цеха_и_склады.md`):
+ * с `materials` списывается сырьё, на `output` приходуется выпуск цеха.
+ */
+export type WarehouseRole = "materials" | "output";
+
+export type WarehouseRef = { id: Id; name: string; role?: WarehouseRole };
 
 export type WorkshopRef = {
   id: Id;
   code: string;
   name: string;
+  /** Склад цеха по контракту v0.2. При нескольких складах это склад выпуска. */
   warehouse: WarehouseRef;
+  /** Все склады цеха с ролями (v0.3). Нет в ответе: у цеха один склад. */
+  warehouses?: WarehouseRef[];
 };
 
 export type Me = {
@@ -111,6 +120,9 @@ export type StockLine = {
   reserved: number;
   /** qty − reserved: сколько реально можно передать или списать. */
   available: number;
+  /** Склад, на котором лежит позиция (v0.3). Нет в ответе: единственный склад цеха. */
+  warehouse_id?: Id;
+  warehouse_name?: string;
 };
 
 export type WorkshopContext = {

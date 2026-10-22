@@ -176,9 +176,12 @@ async function main() {
     await waitFor(cdp, "return document.querySelectorAll('input').length >= 2");
     await snap(cdp, "enter");
 
-    // вход
-    await cdp.eval(`(() => { const i = document.querySelectorAll('input'); __lf.setInput(i[0], 'цех_литейка'); __lf.setInput(i[1], 'x'); return true; })()`);
+    // вход начальником производства: у него четыре цеха, поэтому сначала выбор цеха (Д-7)
+    await cdp.eval(`(() => { const i = document.querySelectorAll('input'); __lf.setInput(i[0], 'начпроизводства'); __lf.setInput(i[1], 'x'); return true; })()`);
     await cdp.eval("document.querySelector('button[type=submit]').click(); true");
+    await waitFor(cdp, "return !!Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Литейка ЭВА'))");
+    await snap(cdp, "choose-workshop");
+    await cdp.eval("Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Литейка ЭВА')).click(); true");
     await waitButton(cdp, "Открыть 1 смену");
 
     // смена с данными: состав, три строки выработки, итог выпуска

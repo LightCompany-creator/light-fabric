@@ -69,8 +69,11 @@ export function Api1CProvider({ children }: { children: ReactNode }) {
     setCredentials({ login: stored.login, password: stored.password });
 
     let cancelled = false;
+    // Один цех выбирается сам. Несколько: человек выбирает на экране, и выбор
+    // хранится в сеансе; без него рабочее место покажет список цехов.
     const pick = (me: Me) =>
-      me.workshops.find((w) => w.id === stored.workshopId) ?? me.workshops[0] ?? null;
+      me.workshops.find((w) => w.id === stored.workshopId) ??
+      (me.workshops.length === 1 ? me.workshops[0] : null);
 
     createApi1C({ login: stored.login, password: stored.password })
       .me()
@@ -99,7 +102,7 @@ export function Api1CProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (login: string, password: string) => {
     const client = createApi1C({ login, password });
     const me = await client.me();
-    const workshop = me.workshops[0] ?? null;
+    const workshop = me.workshops.length === 1 ? me.workshops[0] : null;
     saveSession({ login, password, workshopId: workshop?.id, userName: me.user.name, me });
     setCredentials({ login, password });
     setSession({ status: "ready", me, workshop });

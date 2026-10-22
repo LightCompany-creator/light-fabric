@@ -33,6 +33,7 @@ import type {
   TransferHead,
   TransfersQuery,
   ValidationDetail,
+  WarehouseRef,
   WorkType,
   WorkshopContext,
   WorkshopRef,
@@ -45,8 +46,53 @@ const round = (n: number) => Math.round(n * 1000) / 1000;
 
 // ---------- справочники ----------
 
+// У цеха может быть несколько складов (v0.3): с материальных списывается сырьё,
+// на склад выпуска приходуется продукция. Остальные цеха оставлены с одним
+// складом, как в контракте v0.2: приложение должно уметь и так, и так.
 const WORKSHOPS: WorkshopRef[] = [
-  { id: "w-lit", code: "00-000004", name: "Литьё", warehouse: { id: "s-lit", name: "Литейный ЦЕХ ЭВА" } },
+  {
+    id: "w-lit",
+    code: "00-000004",
+    name: "Литейка ЭВА",
+    warehouse: { id: "s-lit", name: "Литейный ЦЕХ ЭВА", role: "output" },
+    warehouses: [
+      { id: "s-lit", name: "Литейный ЦЕХ ЭВА", role: "output" },
+      { id: "s-lit-raw", name: "Сырьё ЭВА", role: "materials" },
+      { id: "s-lit-raw2", name: "Пластикат 6", role: "materials" },
+    ],
+  },
+  {
+    id: "w-lit-pvc",
+    code: "00-000012",
+    name: "Литейка ПВХ",
+    warehouse: { id: "s-litpvc", name: "Литейный цех ПВХ", role: "output" },
+    warehouses: [
+      { id: "s-litpvc", name: "Литейный цех ПВХ", role: "output" },
+      { id: "s-litpvc-raw", name: "Сырьё ПВХ", role: "materials" },
+    ],
+  },
+  {
+    id: "w-pack-eva",
+    code: "00-000013",
+    name: "Упаковка ЭВА",
+    warehouse: { id: "s-packeva", name: "Упаковка ЭВА, готовое", role: "output" },
+    warehouses: [
+      { id: "s-packeva", name: "Упаковка ЭВА, готовое", role: "output" },
+      { id: "s-packeva-semi", name: "Полуфабрикат ЭВА", role: "materials" },
+      { id: "s-packeva-tare", name: "Тара и упаковка", role: "materials" },
+    ],
+  },
+  {
+    id: "w-pack-pvc",
+    code: "00-000014",
+    name: "Упаковка ПВХ",
+    warehouse: { id: "s-packpvc", name: "Упаковка ПВХ, готовое", role: "output" },
+    warehouses: [
+      { id: "s-packpvc", name: "Упаковка ПВХ, готовое", role: "output" },
+      { id: "s-packpvc-semi", name: "Полуфабрикат ПВХ", role: "materials" },
+      { id: "s-packpvc-tare", name: "Тара и упаковка ПВХ", role: "materials" },
+    ],
+  },
   { id: "w-cut", code: "00-000005", name: "Крой", warehouse: { id: "s-cut", name: "Материалы для кроя" } },
   { id: "w-sew", code: "00-000006", name: "Швейка", warehouse: { id: "s-sew", name: "Швейное производство" } },
   { id: "w-assy", code: "00-000007", name: "Обшив", warehouse: { id: "s-assy", name: "Склад Обшив" } },
@@ -67,6 +113,22 @@ const ITEMS: Record<Id, { code: string; name: string; unit: string }> = {
   "i-boot-packed": { code: "00-00001235", name: "Сапоги 112 упакованные", unit: "пар" },
   "i-blank": { code: "00-00001003", name: "Заготовка верха 112", unit: "пар" },
   "i-glued": { code: "00-00001236", name: "Кроксы 205 с лейблом", unit: "пар" },
+  "i-pvc": { code: "00-00000510", name: "Пластикат ПВХ", unit: "кг" },
+  "i-galosh-pvc": { code: "00-00001010", name: "Галоша ПВХ 300", unit: "пар" },
+  "i-box": { code: "00-00000520", name: "Коробка картонная", unit: "шт" },
+  "i-galosh-packed": { code: "00-00001011", name: "Галоша ЭВА 112 упакованная", unit: "пар" },
+  "i-galosh-pvc-packed": { code: "00-00001012", name: "Галоша ПВХ 300 упакованная", unit: "пар" },
+};
+
+/**
+ * На каком складе цеха лежит позиция: продукция цеха на складе выпуска,
+ * материалы по этой таблице, прочее на первом складе материалов.
+ */
+const ITEM_WAREHOUSE: Record<Id, Record<Id, Id>> = {
+  "w-lit": { "i-eva": "s-lit-raw", "i-eva-2": "s-lit-raw2" },
+  "w-lit-pvc": { "i-pvc": "s-litpvc-raw" },
+  "w-pack-eva": { "i-galosh": "s-packeva-semi", "i-box": "s-packeva-tare" },
+  "w-pack-pvc": { "i-galosh-pvc": "s-packpvc-semi", "i-box": "s-packpvc-tare" },
 };
 
 const item = (id: Id) => ITEMS[id] ?? { code: "", name: id, unit: "" };
@@ -116,6 +178,49 @@ const CATALOG: Record<Id, WorkshopData> = {
     products: [
       product("i-galosh", "112-г", [{ item_id: "i-eva", qty_per_unit: 0.42 }]),
       product("i-galosh-137", "137-г", [{ item_id: "i-eva", qty_per_unit: 0.18 }]),
+    ],
+  },
+  "w-lit-pvc": {
+    employees: [
+      { id: "e-litpvc-1", code: "0000111", name: "Работник ЛП-01", position: "Литейщик", default_work_type_id: "wt-cast-pvc" },
+      { id: "e-litpvc-2", code: "0000112", name: "Работник ЛП-02", position: "Литейщик", default_work_type_id: "wt-cast-pvc" },
+    ],
+    work_types: [
+      { id: "wt-cast-pvc", code: "ВР-007", name: "Литьё ПВХ", unit: "пар", requires_product: true },
+      idle("litpvc"),
+    ],
+    products: [product("i-galosh-pvc", "300-г", [{ item_id: "i-pvc", qty_per_unit: 0.55 }])],
+  },
+  "w-pack-eva": {
+    employees: [
+      { id: "e-packeva-1", code: "0000121", name: "Работник У-01", position: "Упаковщик", default_work_type_id: "wt-pack-eva" },
+      { id: "e-packeva-2", code: "0000122", name: "Работник У-02", position: "Упаковщик", default_work_type_id: "wt-pack-eva" },
+    ],
+    work_types: [
+      { id: "wt-pack-eva", code: "ВР-011", name: "Упаковка галош", unit: "пар", requires_product: true },
+      idle("packeva"),
+    ],
+    // Коробка на десять пар: материалы с двух складов, полуфабрикат и тара.
+    products: [
+      product("i-galosh-packed", "112-у", [
+        { item_id: "i-galosh", qty_per_unit: 1 },
+        { item_id: "i-box", qty_per_unit: 0.1 },
+      ]),
+    ],
+  },
+  "w-pack-pvc": {
+    employees: [
+      { id: "e-packpvc-1", code: "0000131", name: "Работник УП-01", position: "Упаковщик", default_work_type_id: "wt-pack-pvc" },
+    ],
+    work_types: [
+      { id: "wt-pack-pvc", code: "ВР-012", name: "Упаковка галош ПВХ", unit: "пар", requires_product: true },
+      idle("packpvc"),
+    ],
+    products: [
+      product("i-galosh-pvc-packed", "300-у", [
+        { item_id: "i-galosh-pvc", qty_per_unit: 1 },
+        { item_id: "i-box", qty_per_unit: 0.1 },
+      ]),
     ],
   },
   "w-cut": {
@@ -194,6 +299,9 @@ const CATALOG: Record<Id, WorkshopData> = {
 const stock: Record<Id, Record<Id, number>> = {
   // Второй сорт лежит на складе, но в спецификации его нет: чтобы было чем заменить.
   "w-lit": { "i-eva": 1250.5, "i-eva-2": 400, "i-galosh": 320 },
+  "w-lit-pvc": { "i-pvc": 640, "i-galosh-pvc": 210 },
+  "w-pack-eva": { "i-galosh": 300, "i-box": 80, "i-galosh-packed": 120 },
+  "w-pack-pvc": { "i-galosh-pvc": 150, "i-box": 60 },
   "w-cut": { "i-cloth": 900, "i-blank": 180 },
   "w-sew": { "i-blank": 120, "i-sock": 210 },
   "w-assy": { "i-galosh": 40, "i-sock": 40 },
@@ -359,10 +467,22 @@ function reservedFor(workshopId: Id, itemId: Id): number {
   return sum;
 }
 
+/** Склад, на котором лежит позиция цеха. У цеха с одним складом это он и есть. */
+function warehouseOf(workshopId: Id, itemId: Id): WarehouseRef | undefined {
+  const workshop = WORKSHOPS.find((w) => w.id === workshopId);
+  const list = workshop?.warehouses ?? (workshop ? [workshop.warehouse] : []);
+  if (list.length === 0) return undefined;
+  const isProduct = CATALOG[workshopId]?.products.some((p) => p.id === itemId);
+  if (isProduct) return list.find((w) => w.role === "output") ?? list[0];
+  const mapped = ITEM_WAREHOUSE[workshopId]?.[itemId];
+  return list.find((w) => w.id === mapped) ?? list.find((w) => w.role === "materials") ?? list[0];
+}
+
 function stockLines(workshopId: Id): StockLine[] {
   const own = stock[workshopId] ?? {};
   return Object.entries(own).map(([item_id, qty]) => {
     const reserved = reservedFor(workshopId, item_id);
+    const warehouse = warehouseOf(workshopId, item_id);
     return {
       item_id,
       name: item(item_id).name,
@@ -370,6 +490,8 @@ function stockLines(workshopId: Id): StockLine[] {
       qty: round(qty),
       reserved: round(reserved),
       available: round(qty - reserved),
+      warehouse_id: warehouse?.id,
+      warehouse_name: warehouse?.name,
     };
   });
 }

@@ -11,8 +11,10 @@ import { ChevronRight, Loader2, LogOut, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { localDate } from "@/lib/api1c";
+import type { StockLine, WarehouseRef, WorkshopRef } from "@/lib/api1c";
 import { describeError, useApi1C } from "@/lib/api1c/provider";
 import { invalidateWorkshopContext, useWorkshopContext } from "@/lib/api1c/use-workshop-context";
+import { ChooseWorkshop } from "./choose-workshop";
 import { StatusBadge } from "./status-badge";
 
 /** Русское склонение по числу: plural(2, ["смена", "смены", "смен"]). */
@@ -66,9 +68,22 @@ export function Workspace() {
     );
   }
 
+  // Несколько цехов у одной учётной записи: сначала выбор цеха (Д-7).
+  if (!workshop && me.workshops.length > 1) {
+    return (
+      <ChooseWorkshop
+        workshops={me.workshops}
+        userName={me.user.name}
+        onPick={selectWorkshop}
+        onSignOut={signOut}
+      />
+    );
+  }
+
   const openShifts = context?.open_shifts ?? [];
   const isOpen = (no: 1 | 2) => openShifts.some((s) => s.shift_no === no);
   const pending = context?.pending_incoming_transfers ?? 0;
+  const stockGroups = context ? groupStock(context.stock, context.workshop) : [];
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
@@ -241,19 +256,33 @@ export function Workspace() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Остатки склада</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-1 text-sm">
+            <CardContent className="space-y-3 text-sm">
               {context.stock.length === 0 ? (
                 <p className="text-muted-foreground">Склад пуст.</p>
               ) : (
-                context.stock.map((line) => (
-                  <div key={line.item_id} className="flex items-center justify-between gap-4 py-1">
-                    <span className="truncate text-[15px]">{line.name ?? line.item_id}</span>
-                    <span className="shrink-0 text-[15px] font-medium tabular-nums">
-                      {line.available} {line.unit}
-                      {line.reserved > 0 ? (
-                        <span className="font-normal text-muted-foreground"> (в передаче {line.reserved})</span>
-                      ) : null}
-                    </span>
+                stockGroups.map((group) => (
+                  <div key={group.id} className="space-y-1">
+                    {group.title ? (
+                      <p className="flex items-center gap-2 pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {group.title}
+                        {group.role ? (
+                          <span className="rounded-full bg-muted px-2 py-0.5 font-medium normal-case tracking-normal">
+                            {group.role === "output" ? "выпуск" : "материалы"}
+                          </span>
+                        ) : null}
+                      </p>
+                    ) : null}
+                    {group.lines.map((line) => (
+                      <div key={line.item_id} className="flex items-center justify-between gap-4 py-1">
+                        <span className="truncate text-[15px]">{line.name ?? line.item_id}</span>
+                        <span className="shrink-0 text-[15px] font-medium tabular-nums">
+                          {line.available} {line.unit}
+                          {line.reserved > 0 ? (
+                            <span className="font-normal text-muted-foreground"> (в передаче {line.reserved})</span>
+                          ) : null}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 ))
               )}
@@ -263,6 +292,32 @@ export function Workspace() {
       ) : null}
     </div>
   );
+}
+
+type StockGroup = { id: string; title: string | null; role?: WarehouseRef["role"]; lines: StockLine[] };
+
+/**
+ * Остатки по складам (Д-8): склад выпуска первым, затем склады материалов.
+ * Если 1С отдаёт один склад на цех (контракт v0.2), группа одна и без заголовка.
+ */
+function groupStock(stock: StockLine[], workshop: WorkshopRef): StockGroup[] {
+  const warehouses = workshop.warehouses?.length ? workshop.warehouses : [workshop.warehouse];
+  const several = warehouses.length > 1 || stock.some((l) => l.warehouse_id && l.warehouse_id !== workshop.warehouse.id);
+  if (!several) return [{ id: "all", title: null, lines: stock }];
+
+  const ordered = [...warehouses].sort((a, b) => Number(b.role === "output") - Number(a.role === "output"));
+  const groups: StockGroup[] = ordered.map((w) => ({ id: w.id, title: w.name, role: w.role, lines: [] }));
+  const other: StockGroup = { id: "other", title: "Другие склады", lines: [] };
+  for (const line of stock) {
+    const group = groups.find((g) => g.id === line.warehouse_id);
+    if (group) group.lines.push(line);
+    else if (line.warehouse_id) {
+      other.title = line.warehouse_name ?? other.title;
+      other.lines.push(line);
+    } else groups[0].lines.push(line);
+  }
+  if (other.lines.length) groups.push(other);
+  return groups.filter((g) => g.lines.length > 0);
 }
 
 function Figure({ value, label }: { value: number; label: string }) {

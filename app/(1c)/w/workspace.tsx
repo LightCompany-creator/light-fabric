@@ -91,6 +91,7 @@ export function Workspace() {
         <div>
           <h1 className="text-2xl font-bold">{workshop?.name ?? "Цех не выбран"}</h1>
           <p className="text-sm text-muted-foreground">
+            {workshop?.parent ? `${workshop.parent.name} · ` : ""}
             {me.user.name}
             {me.is_admin ? " · администратор" : ""}
             {workshop ? ` · склад «${workshop.warehouse.name}»` : ""}

@@ -26,7 +26,7 @@ export function createApi1C(credentials?: Credentials): Api1C {
     // чтобы проверить переоткрытие смены. В 1С это решает сам пользователь.
     const login = (credentials?.login ?? "").toLowerCase();
     const isAdmin = login.includes("админ") || login.includes("admin");
-    const manager = login.includes("производ");
+    const manager = login.includes("производ") || login.includes("proizv") || login.includes("manager");
     return new Api1CMock({
       isAdmin,
       userName: isAdmin ? "Администратор" : manager ? "Начальник производства" : undefined,
@@ -58,16 +58,31 @@ export function createApi1C(credentials?: Credentials): Api1C {
  * чтобы на демо видеть обе стороны передачи.
  */
 function mockWorkshopsFor(login: string): string[] | undefined {
-  if (login.includes("производ")) return ["w-lit", "w-lit-pvc", "w-pack-eva", "w-pack-pvc"];
+  // Латиница тоже: на планшете часто нет русской раскладки.
+  if (login.includes("производ") || login.includes("proizv") || login.includes("manager")) {
+    return ["w-lit", "w-lit-pvc", "w-pack-eva", "w-pack-pvc"];
+  }
   const byKeyword: [string, string][] = [
     ["упак", "w-pack-eva"],
+    ["pack", "w-pack-eva"],
+    ["upak", "w-pack-eva"],
     ["лит", "w-lit"],
+    ["lit", "w-lit"],
     ["крой", "w-cut"],
+    ["kroy", "w-cut"],
+    ["cut", "w-cut"],
     ["швей", "w-sew"],
+    ["shv", "w-sew"],
+    ["sew", "w-sew"],
     ["обшив", "w-assy"],
+    ["obsh", "w-assy"],
     ["кле", "w-glu"],
+    ["kle", "w-glu"],
+    ["glue", "w-glu"],
     ["марк", "w-mark"],
+    ["mark", "w-mark"],
     ["склад", "w-ship"],
+    ["sklad", "w-ship"],
   ];
   const hit = byKeyword.find(([keyword]) => login.includes(keyword));
   return hit ? [hit[1]] : undefined;

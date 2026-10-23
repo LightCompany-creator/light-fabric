@@ -9,10 +9,8 @@ LightFabric: обновление цехового приложения на с�
 Запуск вручную:
   powershell -NoProfile -ExecutionPolicy Bypass -File C:\lightfabric\update-lightfabric.ps1
 
-По расписанию (от имени SYSTEM, перед сменами):
-  schtasks /Create /TN "LightFabric update" /SC DAILY /ST 05:30 /RU SYSTEM /F ^
-    /TR "powershell -NoProfile -ExecutionPolicy Bypass -File C:\lightfabric\update-lightfabric.ps1"
-  schtasks /Create /TN "LightFabric update 2" /SC DAILY /ST 13:30 /RU SYSTEM /F ^
+По расписанию (от имени SYSTEM, каждые 30 минут):
+  schtasks /Create /TN "LightFabric update" /SC MINUTE /MO 30 /RU SYSTEM /F ^
     /TR "powershell -NoProfile -ExecutionPolicy Bypass -File C:\lightfabric\update-lightfabric.ps1"
 
 Параметры: -SiteRoot (корень сайта IIS), -Folder (каталог приложения),

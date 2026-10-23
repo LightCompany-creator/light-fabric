@@ -10,8 +10,8 @@
 #   ./update-lightfabric.sh --rollback      # вернуть предыдущую
 #
 # Переменные: SITE_ROOT (по умолчанию /var/www/html), FOLDER (lightfabric),
-# REPO (LightCompany-creator/light-fabric). В cron, перед сменами:
-#   30 5,13 * * * /opt/lightfabric/update-lightfabric.sh >> /var/log/lightfabric-update.log 2>&1
+# REPO (LightCompany-creator/light-fabric). В cron, каждые 30 минут:
+#   */30 * * * * /opt/lightfabric/update-lightfabric.sh >> /var/log/lightfabric-update.log 2>&1
 set -euo pipefail
 
 REPO="${REPO:-LightCompany-creator/light-fabric}"

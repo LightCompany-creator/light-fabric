@@ -1,0 +1,71 @@
+# Выпуск версии цехового приложения для сервера 1С.
+#
+# Запуск: тег вида v2026.10.23-1 (git tag v2026.10.23-1 && git push origin v2026.10.23-1)
+# или кнопка «Run workflow» с номером версии. Результат: релиз в GitHub
+# с архивом lightfabric-<версия>.zip, который сервер фабрики забирает сам
+# скриптом deploy/update-lightfabric.ps1.
+#
+# Параметры сборки: deploy/release.json (каталог и путь сервиса 1С).
+# Переменная репозитория LF_API_PATH, если задана, важнее release.json.
+
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Номер версии, например 2026.10.23-1"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Параметры сборки
+        id: cfg
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          VAR_API_PATH: ${{ vars.LF_API_PATH }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then VERSION="$INPUT_VERSION"; else VERSION="${GITHUB_REF_NAME#v}"; fi
+          BASE=$(node -p "require('./deploy/release.json').basePath")
+          API="$VAR_API_PATH"
+          if [ -z "$API" ]; then API=$(node -p "require('./deploy/release.json').apiPath"); fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "api=$API" >> "$GITHUB_OUTPUT"
+          echo "Версия $VERSION, каталог $BASE, сервис 1С: ${API:-заглушка}"
+
+      - name: Статическая сборка
+        run: npm run build:static -- --base "${{ steps.cfg.outputs.base }}" --api "${{ steps.cfg.outputs.api }}" --version "${{ steps.cfg.outputs.version }}"
+
+      - name: Заметки к выпуску
+        run: |
+          # Первый раздел RELEASES.md (до следующего заголовка «## »)
+          awk 'BEGIN{n=0} /^## /{n++} n==1{print}' RELEASES.md > notes.md
+          if [ -z "${{ steps.cfg.outputs.api }}" ]; then printf '\n> Сборка с заглушкой 1С: путь сервиса ещё не задан.\n' >> notes.md; fi
+          cat notes.md
+
+      - name: Релиз
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.cfg.outputs.version }}"
+          ASSET=$(ls dist/*-"$VERSION".zip)
+          cp deploy/update-lightfabric.ps1 deploy/update-lightfabric.sh dist/
+          gh release create "v$VERSION" "$ASSET" dist/update-lightfabric.ps1 dist/update-lightfabric.sh \
+            --title "LightFabric $VERSION" --notes-file notes.md

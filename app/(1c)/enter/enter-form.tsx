@@ -94,6 +94,11 @@ export function EnterForm() {
               Подойдёт любой логин и пароль.
             </p>
           ) : null}
+
+          {/* Номер версии: по нему видно, обновился ли сервер фабрики. */}
+          <p className="text-center text-xs text-muted-foreground">
+            Сборка {process.env.NEXT_PUBLIC_APP_VERSION || "dev"}
+          </p>
         </form>
       </CardContent>
     </Card>

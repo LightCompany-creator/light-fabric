@@ -3,6 +3,7 @@
 //   npm run build:static                       → каталог /lightfabric, заглушка 1С
 //   npm run build:static -- --base /lf         → другой каталог
 //   npm run build:static -- --api /base/hs/lightfabric   → боевой адрес сервиса
+//   npm run build:static -- --version 2026.10.23-1       → номер версии (иначе dev-дата)
 //
 // Результат: dist/<каталог>/ с html, js, css и web.config для IIS, рядом zip.
 // Node на сервере не нужен: папку кладут рядом с публикацией 1С.
@@ -26,6 +27,9 @@ const opt = (name, fallback) => {
 const basePath = opt("--base", "/lightfabric").replace(/\/$/, "");
 const apiUrl = opt("--api", "");
 const folder = basePath.replace(/^\//, "") || "lightfabric";
+// Версия сборки: показывается на экране входа и лежит в version.json, по ней
+// скрипт обновления на сервере понимает, нужно ли что-то скачивать.
+const version = opt("--version", process.env.NEXT_PUBLIC_APP_VERSION || `dev-${new Date().toISOString().slice(0, 10)}`);
 
 const aside = path.join(root, ".static-aside");
 const stubs = path.join(root, "scripts", "static");
@@ -78,6 +82,7 @@ try {
     NEXT_PUBLIC_LF_STATIC: "1",
     NEXT_PUBLIC_BASE_PATH: basePath,
     NEXT_PUBLIC_API_1C_URL: apiUrl,
+    NEXT_PUBLIC_APP_VERSION: version,
     NEXT_TELEMETRY_DISABLED: "1",
   };
   const r = spawnSync(process.platform === "win32" ? "npx.cmd" : "npx", ["next", "build"], {
@@ -125,15 +130,22 @@ if (basePath) {
   console.log(`Ссылка на манифест поправлена в ${fixed} страницах`);
 }
 fs.copyFileSync(path.join(stubs, "УСТАНОВКА.md"), path.join(root, "dist", "УСТАНОВКА.md"));
-
-// Архив рядом, чтобы отправить одним файлом
-const stamp = new Date().toISOString().slice(0, 10);
-const zip = path.join(root, "dist", `${folder}-static-${stamp}.zip`);
-fs.rmSync(zip, { force: true });
-const z = spawnSync(
-  "powershell",
-  ["-NoProfile", "-Command", `Compress-Archive -LiteralPath '${dist}','${path.join(root, "dist", "УСТАНОВКА.md")}' -DestinationPath '${zip}' -Force`],
-  { stdio: "inherit" },
+fs.writeFileSync(
+  path.join(dist, "version.json"),
+  JSON.stringify({ version, built_at: new Date().toISOString(), base_path: basePath, api: apiUrl || null }, null, 2),
 );
+
+// Архив рядом, чтобы отправить одним файлом. На Windows через PowerShell,
+// на Linux (сборка в GitHub) через zip.
+const zip = path.join(root, "dist", `${folder}-${version}.zip`);
+fs.rmSync(zip, { force: true });
+const z =
+  process.platform === "win32"
+    ? spawnSync(
+        "powershell",
+        ["-NoProfile", "-Command", `Compress-Archive -LiteralPath '${dist}','${path.join(root, "dist", "УСТАНОВКА.md")}' -DestinationPath '${zip}' -Force`],
+        { stdio: "inherit" },
+      )
+    : spawnSync("zip", ["-qr", zip, folder, "УСТАНОВКА.md"], { cwd: path.join(root, "dist"), stdio: "inherit" });
 const pages = fs.readdirSync(dist, { recursive: true }).filter((f) => f.endsWith("index.html")).length;
 console.log(`\nГотово: ${dist}\nСтраниц: ${pages}${z.status === 0 ? `\nАрхив: ${zip}` : "\nАрхив не создан (нет PowerShell)"}`);

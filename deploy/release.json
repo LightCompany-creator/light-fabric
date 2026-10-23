@@ -1,0 +1,5 @@
+{
+  "_": "Параметры боевой сборки для GitHub Actions (.github/workflows/release.yml). apiPath пустой = заглушка 1С; путь сервиса можно задать и переменной репозитория LF_API_PATH, она главнее.",
+  "basePath": "/lightfabric",
+  "apiPath": ""
+}

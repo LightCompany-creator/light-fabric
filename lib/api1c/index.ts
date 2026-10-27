@@ -4,7 +4,7 @@
 
 import type { Api1C } from "./api";
 import { Api1CClient, Api1CError, basicAuthHeader } from "./client";
-import { Api1CMock } from "./mock";
+import { Api1CMock, MOCK_PRODUCTION_SHOP } from "./mock";
 
 export type { Api1C } from "./api";
 export * from "./types";
@@ -31,6 +31,8 @@ export function createApi1C(credentials?: Credentials): Api1C {
       isAdmin,
       userName: isAdmin ? "Администратор" : manager ? "Начальник производства" : undefined,
       workshopIds: isAdmin ? undefined : mockWorkshopsFor(login),
+      // Начальник четырёх участков привязан к производственному цеху (v0.4).
+      productionShop: !isAdmin && mockWorkshopsFor(login)?.length === 4 ? MOCK_PRODUCTION_SHOP : null,
     });
   }
   if (!credentials) {

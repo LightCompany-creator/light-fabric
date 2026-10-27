@@ -51,20 +51,21 @@ export type ApiErrorBody = {
 // ---------- справочники ----------
 
 /**
- * Роль склада у цеха (предложение v0.3, `1С-Арсену/Дополнение_v0.3_цеха_и_склады.md`):
- * с `materials` списывается сырьё, на `output` приходуется выпуск цеха.
+ * Роль склада участка (контракт v0.4, `1С-Арсену/Правки_контракта_v0.4_склады.md`):
+ * с `materials` списываются материалы смены, на `output` приходит выпуск.
+ * Если у участка один склад на всё, 1С отдаёт его дважды, с обеими ролями.
  */
 export type WarehouseRole = "materials" | "output";
 
-export type WarehouseRef = { id: Id; name: string; role?: WarehouseRole };
+export type WarehouseRef = { id: Id; code?: string; name: string; role?: WarehouseRole };
 
 export type WorkshopRef = {
   id: Id;
   code: string;
   name: string;
-  /** Склад цеха по контракту v0.2. При нескольких складах это склад выпуска. */
+  /** Склад цеха по контракту v0.2. С v0.4 это склад продукции. */
   warehouse: WarehouseRef;
-  /** Все склады цеха с ролями (v0.3). Нет в ответе: у цеха один склад. */
+  /** Склады участка с ролями (v0.4). Нет в ответе: 1С ещё на v0.2, склад один. */
   warehouses?: WarehouseRef[];
 };
 
@@ -72,6 +73,8 @@ export type Me = {
   ok: true;
   user: { id: Id; name: string };
   is_admin: boolean;
+  /** Производственный цех пользователя (v0.4): объединяет его участки. null: не привязан. */
+  production_shop?: { id: Id; name: string } | null;
   workshops: WorkshopRef[];
 };
 
@@ -120,7 +123,10 @@ export type StockLine = {
   reserved: number;
   /** qty − reserved: сколько реально можно передать или списать. */
   available: number;
-  /** Склад, на котором лежит позиция (v0.3). Нет в ответе: единственный склад цеха. */
+  /**
+   * Склад, на котором лежит позиция (v0.4). Одна позиция может прийти двумя
+   * строками, по разу на каждый склад участка. Нет в ответе: склад один.
+   */
   warehouse_id?: Id;
   warehouse_name?: string;
 };
@@ -257,6 +263,9 @@ export type TransferHead = {
   lines_count?: number;
   qty_total?: number;
   version: string;
+  /** Склады отправки и приёма (v0.4). */
+  from_warehouse?: { id: Id; name: string };
+  to_warehouse?: { id: Id; name: string };
 };
 
 export type Transfer = TransferHead & { comment: string; lines: TransferLine[] };
@@ -296,6 +305,12 @@ export type NewTransfer = {
   date: IsoDate;
   comment?: string;
   lines: Pick<TransferLine, "item_id" | "qty">[];
+  /**
+   * Склады (v0.4), необязательные: по умолчанию со склада продукции отправителя
+   * на склад материалов получателя. Только склады своих участков.
+   */
+  from_warehouse_id?: Id;
+  to_warehouse_id?: Id;
 };
 
 /** Сторона подтверждения: обязательна, если пользователь отвечает за оба склада. */

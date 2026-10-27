@@ -24,6 +24,7 @@ import {
   useWorkshopContext,
 } from "@/lib/api1c/use-workshop-context";
 import { Api1CError } from "@/lib/api1c";
+import { availableOn, materialsWarehouseId, outputWarehouseId, withWarehouses } from "@/lib/api1c/warehouses";
 import type {
   ShiftMaterial,
   ShiftOutput,
@@ -84,7 +85,7 @@ function materialsBySpec(products: ShiftProduct[], ctx: WorkshopContext): ShiftM
  * Считаем заранее, чтобы нехватка всплывала во время работы, а не отказом 1С
  * в момент закрытия смены.
  */
-function calcMaterials(materials: ShiftMaterial[], ctx: WorkshopContext): MaterialNeed[] {
+function calcMaterials(materials: ShiftMaterial[], ctx: WorkshopContext, warehouseId: string): MaterialNeed[] {
   const need = new Map<string, number>();
   for (const m of materials) {
     need.set(m.item_id, (need.get(m.item_id) ?? 0) + m.qty);
@@ -93,9 +94,11 @@ function calcMaterials(materials: ShiftMaterial[], ctx: WorkshopContext): Materi
 
   return Array.from(need.entries()).map(([item_id, raw]) => {
     const required = round(raw);
+    // Материалы списываются со склада материалов участка (v0.4): остаток той же
+    // позиции на складе продукции для смены не в счёт.
     const stock = ctx.stock.find((s) => s.item_id === item_id);
     const material = ctx.materials.find((m) => m.id === item_id);
-    const available = stock?.available ?? 0;
+    const available = round(availableOn(ctx.stock, warehouseId, item_id));
     return {
       item_id,
       name: material?.name ?? stock?.name ?? item_id,
@@ -803,7 +806,12 @@ function MaterialsSection({
   // Пока человек не правил строки, показываем норму; как только поправил, его версию.
   const edited = materials.length > 0;
   const shown = edited ? materials : norm;
-  const needs = useMemo(() => calcMaterials(shown, context), [shown, context]);
+  const { workshop } = useApi1C();
+  const materialsWarehouse = materialsWarehouseId(withWarehouses(workshop, context.workshop));
+  const needs = useMemo(
+    () => calcMaterials(shown, context, materialsWarehouse),
+    [shown, context, materialsWarehouse],
+  );
   const shortage = needs.filter((n) => n.short > 0);
   const reflected = shift.shift?.accounting?.status === "done";
 
@@ -1162,13 +1170,15 @@ function ReopenBlock({
   workshopId?: string;
   context: WorkshopContext;
 }) {
-  const { me } = useApi1C();
+  const { me, workshop } = useApi1C();
   const reflected = shift.shift?.accounting?.status === "done";
+  // Выпуск лежит на складе продукции участка (v0.4): по нему и проверяем, не ушла ли продукция дальше.
+  const outputWarehouse = outputWarehouseId(withWarehouses(workshop, context.workshop));
   const gone = reflected
     ? shift.state.products
         .map((p) => {
           const line = context.stock.find((x) => x.item_id === p.product_id);
-          const have = line?.available ?? 0;
+          const have = availableOn(context.stock, outputWarehouse, p.product_id);
           const info = context.products.find((x) => x.id === p.product_id);
           return {
             name: info?.name ?? line?.name ?? p.product_id,

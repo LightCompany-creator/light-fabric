@@ -1,32 +1,38 @@
 "use client";
 
-// Выбор цеха сразу после входа (Д-7). Один начальник может вести несколько
-// цехов с одной учётной записи: у Размелы это Литейка ЭВА и ПВХ, Упаковка ЭВА
-// и ПВХ, четыре подразделения 1С с разными людьми, номенклатурой и складами.
-// Иерархии в 1С для них нет, поэтому просто список, как приходит из /me.
+// Выбор участка сразу после входа (Д-7). Один начальник может вести несколько
+// участков с одной учётной записи: у Размелы это Литейка ЭВА и ПВХ, Упаковка ЭВА
+// и ПВХ. В 1С они объединены «производственным цехом» пользователя (v0.4,
+// production_shop): его название идёт заголовком. Без него просто список.
 
 import { ChevronRight, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { WorkshopRef } from "@/lib/api1c";
+import type { Me, WorkshopRef } from "@/lib/api1c";
 
 export function ChooseWorkshop({
   workshops,
+  productionShop,
   userName,
   onPick,
   onSignOut,
 }: {
   workshops: WorkshopRef[];
+  productionShop?: Me["production_shop"];
   userName: string;
   onPick: (workshopId: string) => void;
   onSignOut: () => void;
 }) {
+  const count = productionShop
+    ? `${workshops.length} ${plural(workshops.length, ["участок", "участка", "участков"])}`
+    : `${workshops.length} ${plural(workshops.length, ["цех", "цеха", "цехов"])}`;
+
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Какой цех?</h1>
+          <h1 className="text-2xl font-bold">{productionShop ? productionShop.name : "Какой цех?"}</h1>
           <p className="text-sm text-muted-foreground">
-            {userName} · {workshops.length} {plural(workshops.length, ["цех", "цеха", "цехов"])}
+            {userName} · {count}
           </p>
         </div>
         <Button variant="ghost" className="h-11" onClick={onSignOut}>

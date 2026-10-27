@@ -131,6 +131,11 @@ export function TransfersScreen() {
                         {doc.number} · {doc.date.slice(0, 10)} · позиций {doc.lines_count ?? 0}
                         {doc.qty_total ? ` · всего ${doc.qty_total}` : ""}
                       </p>
+                      {doc.from_warehouse && doc.to_warehouse ? (
+                        <p className="truncate text-xs text-muted-foreground">
+                          «{doc.from_warehouse.name}» → «{doc.to_warehouse.name}»
+                        </p>
+                      ) : null}
                     </div>
                     <StatusBadge kind={state.kind} className="shrink-0">
                       {state.text}

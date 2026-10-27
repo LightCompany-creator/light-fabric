@@ -11,7 +11,8 @@ import { ChevronRight, Loader2, LogOut, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { localDate } from "@/lib/api1c";
-import type { StockLine, WarehouseRef, WorkshopRef } from "@/lib/api1c";
+import type { StockLine, WorkshopRef } from "@/lib/api1c";
+import { rolesLabel, warehousesOf, withWarehouses, type WarehouseView } from "@/lib/api1c/warehouses";
 import { describeError, useApi1C } from "@/lib/api1c/provider";
 import { invalidateWorkshopContext, useWorkshopContext } from "@/lib/api1c/use-workshop-context";
 import { ChooseWorkshop } from "./choose-workshop";
@@ -73,6 +74,7 @@ export function Workspace() {
     return (
       <ChooseWorkshop
         workshops={me.workshops}
+        productionShop={me.production_shop}
         userName={me.user.name}
         onPick={selectWorkshop}
         onSignOut={signOut}
@@ -83,7 +85,7 @@ export function Workspace() {
   const openShifts = context?.open_shifts ?? [];
   const isOpen = (no: 1 | 2) => openShifts.some((s) => s.shift_no === no);
   const pending = context?.pending_incoming_transfers ?? 0;
-  const stockGroups = context ? groupStock(context.stock, context.workshop) : [];
+  const stockGroups = context ? groupStock(context.stock, withWarehouses(workshop, context.workshop)) : [];
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
@@ -91,6 +93,7 @@ export function Workspace() {
         <div>
           <h1 className="text-2xl font-bold">{workshop?.name ?? "Цех не выбран"}</h1>
           <p className="text-sm text-muted-foreground">
+            {me.production_shop ? `${me.production_shop.name} · ` : ""}
             {me.user.name}
             {me.is_admin ? " · администратор" : ""}
             {workshop ? ` · склад «${workshop.warehouse.name}»` : ""}
@@ -265,15 +268,18 @@ export function Workspace() {
                     {group.title ? (
                       <p className="flex items-center gap-2 pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         {group.title}
-                        {group.role ? (
+                        {group.roles.length ? (
                           <span className="rounded-full bg-muted px-2 py-0.5 font-medium normal-case tracking-normal">
-                            {group.role === "output" ? "выпуск" : "материалы"}
+                            {rolesLabel(group.roles)}
                           </span>
                         ) : null}
                       </p>
                     ) : null}
                     {group.lines.map((line) => (
-                      <div key={line.item_id} className="flex items-center justify-between gap-4 py-1">
+                      <div
+                        key={`${line.warehouse_id ?? ""}:${line.item_id}`}
+                        className="flex items-center justify-between gap-4 py-1"
+                      >
                         <span className="truncate text-[15px]">{line.name ?? line.item_id}</span>
                         <span className="shrink-0 text-[15px] font-medium tabular-nums">
                           {line.available} {line.unit}
@@ -294,30 +300,34 @@ export function Workspace() {
   );
 }
 
-type StockGroup = { id: string; title: string | null; role?: WarehouseRef["role"]; lines: StockLine[] };
+type StockGroup = { id: string; title: string | null; roles: WarehouseView["roles"]; lines: StockLine[] };
 
 /**
- * Остатки по складам (Д-8): склад выпуска первым, затем склады материалов.
- * Если 1С отдаёт один склад на цех (контракт v0.2), группа одна и без заголовка.
+ * Остатки по складам (Д-8, контракт v0.4): склад продукции первым, затем склад
+ * материалов. Один склад на обе роли или 1С на v0.2: одна группа без заголовка.
  */
 function groupStock(stock: StockLine[], workshop: WorkshopRef): StockGroup[] {
-  const warehouses = workshop.warehouses?.length ? workshop.warehouses : [workshop.warehouse];
-  const several = warehouses.length > 1 || stock.some((l) => l.warehouse_id && l.warehouse_id !== workshop.warehouse.id);
-  if (!several) return [{ id: "all", title: null, lines: stock }];
+  const warehouses = warehousesOf(workshop);
+  if (warehouses.length < 2) return [{ id: "all", title: null, roles: [], lines: stock }];
 
-  const ordered = [...warehouses].sort((a, b) => Number(b.role === "output") - Number(a.role === "output"));
-  const groups: StockGroup[] = ordered.map((w) => ({ id: w.id, title: w.name, role: w.role, lines: [] }));
-  const other: StockGroup = { id: "other", title: "Другие склады", lines: [] };
+  const groups: StockGroup[] = warehouses.map((w) => ({ id: w.id, title: w.name, roles: w.roles, lines: [] }));
+  const others = new Map<string, StockGroup>();
   for (const line of stock) {
     const group = groups.find((g) => g.id === line.warehouse_id);
     if (group) group.lines.push(line);
-    else if (line.warehouse_id) {
-      other.title = line.warehouse_name ?? other.title;
+    else if (!line.warehouse_id) groups[0].lines.push(line);
+    else {
+      const other = others.get(line.warehouse_id) ?? {
+        id: line.warehouse_id,
+        title: line.warehouse_name ?? "Другой склад",
+        roles: [],
+        lines: [],
+      };
       other.lines.push(line);
-    } else groups[0].lines.push(line);
+      others.set(line.warehouse_id, other);
+    }
   }
-  if (other.lines.length) groups.push(other);
-  return groups.filter((g) => g.lines.length > 0);
+  return [...groups, ...Array.from(others.values())].filter((g) => g.lines.length > 0);
 }
 
 function Figure({ value, label }: { value: number; label: string }) {

@@ -123,6 +123,11 @@ export function TransferScreen({ transferId }: { transferId: string }) {
           <p className="text-sm text-muted-foreground">
             {doc.number} · {doc.date.slice(0, 10)} · {iAmSender ? "вы отправитель" : "вы получатель"}
           </p>
+          {doc.from_warehouse && doc.to_warehouse ? (
+            <p className="text-sm text-muted-foreground">
+              со склада «{doc.from_warehouse.name}» на склад «{doc.to_warehouse.name}»
+            </p>
+          ) : null}
         </div>
       </header>
 

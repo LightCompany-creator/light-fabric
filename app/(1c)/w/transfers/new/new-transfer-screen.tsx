@@ -3,6 +3,10 @@
 // Создание передачи в другой цех. Передавать можно только то, что лежит на складе,
 // и не больше доступного остатка: 1С всё равно откажет, но человеку лучше увидеть
 // границу сразу, прямо в поле ввода.
+//
+// Склады (контракт v0.4): по умолчанию передача идёт со склада продукции участка
+// на склад материалов получателя. Если у участка два разных склада, можно выбрать,
+// откуда отправлять; остатки и «доступно» показываются по выбранному складу.
 
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -12,6 +16,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { localDate, newIdempotencyKey } from "@/lib/api1c";
+import { cn } from "@/lib/utils";
+import {
+  materialsWarehouseId,
+  outputWarehouseId,
+  rolesLabel,
+  stockOn,
+  warehousesOf,
+  withWarehouses,
+} from "@/lib/api1c/warehouses";
 import { describeError, useApi1C } from "@/lib/api1c/provider";
 import { invalidateWorkshopContext, useWorkshopContext } from "@/lib/api1c/use-workshop-context";
 
@@ -20,8 +33,9 @@ const selectClass =
 
 export function NewTransferScreen() {
   const router = useRouter();
-  const { workshop, api } = useApi1C();
+  const { workshop, api, me } = useApi1C();
   const { context } = useWorkshopContext(workshop?.id);
+  const [pickedFrom, setPickedFrom] = useState<string | null>(null);
 
   const [targetId, setTargetId] = useState("");
   const [comment, setComment] = useState("");
@@ -33,11 +47,28 @@ export function NewTransferScreen() {
   // созданный документ, а не сделает второй.
   const idempotencyKey = useRef<string | null>(null);
 
-  // Передавать имеет смысл только то, что реально есть в наличии.
+  const own = context ? withWarehouses(workshop, context.workshop) : null;
+  const hasWarehouses = !!own?.warehouses?.length;
+  const warehouses = own ? warehousesOf(own) : [];
+  const fromId = pickedFrom ?? (own ? outputWarehouseId(own) : "");
+  const fromName = warehouses.find((w) => w.id === fromId)?.name ?? workshop?.warehouse.name ?? "";
+
+  // Передавать имеет смысл только то, что реально есть в наличии на складе отправки.
   const available = useMemo(
-    () => (context?.stock ?? []).filter((line) => line.available > 0),
-    [context],
+    () => stockOn(context?.stock ?? [], fromId).filter((line) => line.available > 0),
+    [context, fromId],
   );
+
+  // Свой участок с общим складом: у Литейки ПВХ склад продукции и у Упаковки ПВХ
+  // склад материалов один и тот же. Такая передача ничего не двигает, 1С её не примет.
+  const ownTarget = me?.workshops.find((w) => w.id === targetId);
+  const sameWarehouse =
+    hasWarehouses && ownTarget?.warehouses?.length ? materialsWarehouseId(ownTarget) === fromId : false;
+
+  function pickFrom(id: string) {
+    setPickedFrom(id);
+    setQtyByItem({});
+  }
 
   const lines = useMemo(
     () =>
@@ -64,6 +95,7 @@ export function NewTransferScreen() {
           date: localDate(),
           comment,
           lines,
+          ...(hasWarehouses ? { from_warehouse_id: fromId } : {}),
         },
         (idempotencyKey.current ??= newIdempotencyKey()),
       );
@@ -95,9 +127,41 @@ export function NewTransferScreen() {
         </Button>
         <div>
           <h1 className="text-xl font-bold">Передать в другой цех</h1>
-          <p className="text-sm text-muted-foreground">со склада «{workshop?.warehouse.name}»</p>
+          <p className="text-sm text-muted-foreground">со склада «{fromName}»</p>
         </div>
       </header>
+
+      {warehouses.length > 1 ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Откуда</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div role="group" aria-label="Склад отправки" className="flex flex-wrap gap-2">
+              {warehouses.map((w) => {
+                const on = w.id === fromId;
+                return (
+                  <button
+                    key={w.id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => pickFrom(w.id)}
+                    className={cn(
+                      "inline-flex min-h-11 flex-col items-start justify-center rounded-xl border px-4 py-1.5 text-left transition-colors",
+                      on ? "border-primary bg-primary text-primary-foreground" : "border-input bg-card hover:bg-muted/60",
+                    )}
+                  >
+                    <span className="text-[15px] font-medium">{w.name}</span>
+                    <span className={cn("text-xs", on ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                      {rolesLabel(w.roles)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader className="pb-3">
@@ -125,7 +189,7 @@ export function NewTransferScreen() {
         </CardHeader>
         <CardContent className="space-y-3">
           {available.length === 0 ? (
-            <p className="text-sm text-muted-foreground">На складе цеха пусто, передавать нечего.</p>
+            <p className="text-sm text-muted-foreground">На складе «{fromName}» пусто, передавать нечего.</p>
           ) : (
             available.map((line) => {
               const value = qtyByItem[line.item_id] ?? "";
@@ -163,6 +227,11 @@ export function NewTransferScreen() {
         <CardContent className="space-y-3">
           <Input value={comment} onChange={(e) => setComment(e.target.value)} />
 
+          {sameWarehouse ? (
+            <p className="text-sm text-destructive">
+              Склад «{fromName}» общий с участком «{ownTarget?.name}»: продукция уже там.
+            </p>
+          ) : null}
           {tooMuch.length > 0 ? (
             <p className="text-sm text-destructive">
               Больше, чем есть на складе. Уменьшите количество.
@@ -173,7 +242,7 @@ export function NewTransferScreen() {
           <Button
             className="h-14 w-full text-base"
             onClick={() => void send()}
-            disabled={sending || !targetId || lines.length === 0 || tooMuch.length > 0}
+            disabled={sending || !targetId || lines.length === 0 || tooMuch.length > 0 || sameWarehouse}
           >
             {sending ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

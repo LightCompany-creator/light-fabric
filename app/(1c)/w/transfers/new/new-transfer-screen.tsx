@@ -59,11 +59,15 @@ export function NewTransferScreen() {
     [context, fromId],
   );
 
-  // Свой участок с общим складом: у Литейки ПВХ склад продукции и у Упаковки ПВХ
-  // склад материалов один и тот же. Такая передача ничего не двигает, 1С её не примет.
-  const ownTarget = me?.workshops.find((w) => w.id === targetId);
+  // Общий склад: у Литейки ПВХ склад продукции и у Упаковки ПВХ склад материалов
+  // один и тот же. Такая передача ничего не двигает, 1С её не примет. Склады
+  // получателя приходят в transfer_targets контекста (v0.4), для своих участков
+  // они есть ещё и в /me.
+  const target =
+    context?.transfer_targets.find((t) => t.id === targetId && t.warehouses?.length) ??
+    me?.workshops.find((w) => w.id === targetId);
   const sameWarehouse =
-    hasWarehouses && ownTarget?.warehouses?.length ? materialsWarehouseId(ownTarget) === fromId : false;
+    hasWarehouses && target?.warehouses?.length ? materialsWarehouseId(target) === fromId : false;
 
   function pickFrom(id: string) {
     setPickedFrom(id);
@@ -229,7 +233,7 @@ export function NewTransferScreen() {
 
           {sameWarehouse ? (
             <p className="text-sm text-destructive">
-              Склад «{fromName}» общий с участком «{ownTarget?.name}»: продукция уже там.
+              Склад «{fromName}» общий с участком «{target?.name}»: продукция уже там.
             </p>
           ) : null}
           {tooMuch.length > 0 ? (

@@ -714,7 +714,12 @@ export class Api1CMock implements Api1C {
           produced_total: round(products.reduce((sum, p) => sum + p.qty, 0)),
           defect_total: round(products.reduce((sum, p) => sum + p.defect_qty, 0)),
         })),
-      transfer_targets: WORKSHOPS.filter((w) => w.id !== workshopId),
+      // Получатели со складами и ролями, как в /me, только без code (v0.4).
+      transfer_targets: WORKSHOPS.filter((w) => w.id !== workshopId).map((w) => ({
+        ...w,
+        warehouse: { id: w.warehouse.id, name: w.warehouse.name, role: w.warehouse.role },
+        warehouses: w.warehouses?.map(({ id, name, role }) => ({ id, name, role })),
+      })),
       // Входящие ищутся по обоим складам участка (v0.4).
       pending_incoming_transfers: Array.from(transfers.values()).filter(
         (t) => t.status === "open" && isIncoming(t, workshopId),
@@ -1001,7 +1006,8 @@ export class Api1CMock implements Api1C {
     if (doc.lines.length === 0) throw new Api1CError("validation", "Нет строк для передачи", 400);
 
     // Склады (v0.4): по умолчанию со склада продукции отправителя на склад
-    // материалов получателя; указывать можно только склады этих участков.
+    // материалов получателя. Склад отправки только свой, склад приёма любой
+    // из двух складов участка-получателя; чужой склад даёт 400.
     const fromWh = doc.from_warehouse_id ?? whOf(from.id).output;
     const toWh = doc.to_warehouse_id ?? whOf(to.id).materials;
     const invalid = (field: string, message: string) =>

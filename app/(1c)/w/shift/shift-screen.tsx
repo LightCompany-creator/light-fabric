@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { describeError, useApi1C } from "@/lib/api1c/provider";
 import { useShift } from "@/lib/api1c/use-shift";
 import { StatusBadge, SyncBadge } from "../status-badge";
+import { SearchSelect } from "./search-select";
 import {
   invalidateWorkshopContext,
   useWorkshopContext,
@@ -35,6 +36,12 @@ import type {
 
 const selectClass =
   "h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring";
+
+/** Название продукции для экрана: артикул и наименование, если артикул есть. В 1С его часто нет. */
+function productLabel(p: { article?: string; name: string } | undefined): string {
+  if (!p) return "";
+  return [p.article, p.name].filter((x) => x && x.trim()).join(", ");
+}
 
 /** Подсказка по итогу выпуска: сумма выработки в разрезе продукции. */
 function suggestProducts(outputs: ShiftOutput[]): ShiftProduct[] {
@@ -552,36 +559,30 @@ function OutputsSection({
                   ))}
                 </PillGroup>
 
-                <PillGroup label="Вид работ" id="pick-work-type">
-                  {context.work_types.map((w) => (
-                    <Pill
-                      key={w.id}
-                      on={activeWorkTypeId === w.id}
-                      onClick={() => {
-                        setWorkTypeId(w.id);
-                        setFormError(null);
-                      }}
-                    >
-                      {w.name}
-                    </Pill>
-                  ))}
-                </PillGroup>
+                {/* Видов работ и продукции в 1С у участка десятки: выпадающий список
+                    с поиском, а не кнопки (по замечанию Наиры на живых данных). */}
+                <SearchSelect
+                  id="pick-work-type"
+                  label="Вид работ"
+                  options={context.work_types.map((w) => ({ id: w.id, label: w.name }))}
+                  value={activeWorkTypeId}
+                  onChange={(id) => {
+                    setWorkTypeId(id);
+                    setFormError(null);
+                  }}
+                />
 
                 {!noProduct ? (
-                  <PillGroup label="Продукция" id="pick-product">
-                    {context.products.map((p) => (
-                      <Pill
-                        key={p.id}
-                        on={productId === p.id}
-                        onClick={() => {
-                          setProductId(p.id);
-                          setFormError(null);
-                        }}
-                      >
-                        {p.article}, {p.name}
-                      </Pill>
-                    ))}
-                  </PillGroup>
+                  <SearchSelect
+                    id="pick-product"
+                    label="Продукция"
+                    options={context.products.map((p) => ({ id: p.id, label: productLabel(p) }))}
+                    value={productId}
+                    onChange={(id) => {
+                      setProductId(id);
+                      setFormError(null);
+                    }}
+                  />
                 ) : null}
 
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -718,8 +719,8 @@ function ProductsSection({
               return (
                 <div key={row.product_id} className="grid gap-2 sm:grid-cols-[1fr_7rem_7rem]">
                   <div className="self-center text-sm">
-                    <p className="font-medium">{product?.article}</p>
-                    <p className="truncate text-muted-foreground">{product?.name}</p>
+                    <p className="font-medium">{product?.article || product?.name}</p>
+                    {product?.article ? <p className="truncate text-muted-foreground">{product.name}</p> : null}
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Изготовлено</Label>
@@ -815,7 +816,10 @@ function MaterialsSection({
   const shortage = needs.filter((n) => n.short > 0);
   const reflected = shift.shift?.accounting?.status === "done";
 
-  const productOf = (id: string) => context.products.find((p) => p.id === id)?.article ?? id;
+  const productOf = (id: string) => {
+    const p = context.products.find((x) => x.id === id);
+    return p?.article || p?.name || id;
+  };
 
   // Любая правка начинается с копии нормы: дальше в 1С уходит то, что на экране.
   const commit = (next: ShiftMaterial[]) => shift.update({ materials: next });

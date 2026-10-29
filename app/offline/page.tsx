@@ -1,21 +1,13 @@
 import Link from "next/link";
 import { WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { IS_STATIC } from "@/lib/base-path";
 
 export const dynamic = "force-static";
 
-// В статической сборке для фабрики есть только цеховой раздел на 1С,
-// старые экраны на Supabase туда не попадают.
-const links = IS_STATIC
-  ? [
-      { href: "/w", label: "Рабочее место цеха" },
-      { href: "/enter", label: "Войти заново" },
-    ]
-  : [
-      { href: "/dashboard", label: "Открыть дашборд" },
-      { href: "/shifts", label: "Мои смены" },
-    ];
+const links = [
+  { href: "/w", label: "Рабочее место цеха" },
+  { href: "/enter", label: "Войти заново" },
+];
 
 export default function OfflinePage() {
   return (

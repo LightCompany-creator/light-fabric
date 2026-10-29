@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 
 // Два режима сборки.
-// Обычный: `next build` для Vercel и разработки, все разделы, сервер Next.
+// Обычный: `next build` для разработки и проверок, сервер Next.
 // Статический: `npm run build:static` (scripts/build-static.mjs ставит LF_STATIC=1).
 // Получается папка с html/js/css под подкаталог сервера 1С, Node на сервере не нужен.
 const isStatic = process.env.LF_STATIC === "1";
@@ -15,11 +15,6 @@ const nextConfig = isStatic
       // веб-сервер отдают /lightfabric/w/ без правил переписывания адресов.
       trailingSlash: true,
       images: { unoptimized: true },
-      // Старые разделы на время сборки убраны из проекта (см. scripts/build-static.mjs),
-      // и проверка типов спотыкается о компоненты, которые их импортируют.
-      // Сам цеховой раздел проверяется обычной сборкой `next build`.
-      typescript: { ignoreBuildErrors: true },
-      eslint: { ignoreDuringBuilds: true },
     }
   : {};
 

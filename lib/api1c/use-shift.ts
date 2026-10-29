@@ -109,7 +109,9 @@ export type UseShift = {
   refresh: () => Promise<void>;
   /** Переоткрыть закрытую смену. Только администратор. */
   reopen: (reason: string) => Promise<void>;
-  /** Удалить черновик (открытую смену). Черновик на планшете тоже стирается. */
+  /** Поставить или снять пометку на удаление. Перед пометкой досылает несохранённое. */
+  markDeletion: (mark: boolean) => Promise<void>;
+  /** Удалить окончательно помеченную смену (администратор). Черновик на планшете стирается. */
   remove: () => Promise<void>;
   /** Повторить получение версии 1С, если при расхождении не было связи. */
   retryConflict: () => Promise<void>;
@@ -395,6 +397,24 @@ export function useShift(shiftId: string, opts: { knownVersion?: string } = {}):
     [api, shiftId, applyState, commitVersion],
   );
 
+  const markDeletion = useCallback(
+    async (mark: boolean) => {
+      if (mark) {
+        // Сначала досылаем введённое: помеченную смену 1С править уже не даст.
+        if (timer.current) clearTimeout(timer.current);
+        await pushRef.current();
+      }
+      const result = await api.markShiftDeletion(shiftId, mark, { version: versionRef.current });
+      setShift(result.shift);
+      applyState(pickState(result.shift));
+      commitVersion(result.shift.version);
+      dirty.current = false;
+      setError(null);
+      setSync("saved");
+    },
+    [api, shiftId, applyState, commitVersion],
+  );
+
   const remove = useCallback(async () => {
     // Автосохранение останавливаем до запроса: иначе оно вернуло бы смену в 1С.
     blocked.current = true;
@@ -422,6 +442,7 @@ export function useShift(shiftId: string, opts: { knownVersion?: string } = {}):
     close,
     refresh,
     reopen,
+    markDeletion,
     remove,
     retryConflict,
   };

@@ -254,7 +254,16 @@ export class Api1CClient implements Api1C {
     });
   }
 
-  /** Удалить черновик смены (открытую, не отражённую в учёте). */
+  /** Пометка на удаление у открытой смены: поставить или снять. */
+  markShiftDeletion(shiftId: Id, mark: boolean, opts: { version?: string } = {}) {
+    return this.request<{ ok: true; shift: Shift }>(`/shifts/${shiftId}/deletion-mark`, {
+      method: "POST",
+      body: { mark },
+      version: opts.version,
+    });
+  }
+
+  /** Удалить окончательно помеченную смену. Только администратор. */
   deleteShift(shiftId: Id, opts: { version?: string } = {}) {
     return this.request<{ ok: true }>(`/shifts/${shiftId}`, { method: "DELETE", version: opts.version });
   }

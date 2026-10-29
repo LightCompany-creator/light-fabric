@@ -211,13 +211,17 @@ export function ShiftsHistoryScreen() {
 
 function ShiftRow({ shift: s }: { shift: ShiftHead }) {
   const stale = s.status === "open" && s.date < localDate();
+  const marked = !!s.deletion_mark;
   return (
     <Link
       href={`/w/shift?id=${s.id}`}
-      className="flex min-h-14 items-center justify-between gap-3 rounded-md border px-3 py-2 transition-colors hover:bg-muted/60"
+      className={cn(
+        "flex min-h-14 items-center justify-between gap-3 rounded-md border px-3 py-2 transition-colors hover:bg-muted/60",
+        marked && "border-dashed opacity-70",
+      )}
     >
       <span className="min-w-0">
-        <span className="block truncate text-[15px] font-semibold">
+        <span className={cn("block truncate text-[15px] font-semibold", marked && "line-through")}>
           {formatDay(s.date)}, {s.shift_no} смена
         </span>
         <span className="block truncate text-sm text-muted-foreground">
@@ -231,7 +235,11 @@ function ShiftRow({ shift: s }: { shift: ShiftHead }) {
           {s.defect_total ? `, брак ${s.defect_total}` : ""}
         </span>
         {s.accounting_status === "pending" ? <StatusBadge kind="pending" /> : null}
-        <StatusBadge kind={s.status === "closed" ? "closed" : stale ? "unclosed" : "open"} />
+        {marked ? (
+          <StatusBadge kind="marked" />
+        ) : (
+          <StatusBadge kind={s.status === "closed" ? "closed" : stale ? "unclosed" : "open"} />
+        )}
       </span>
     </Link>
   );

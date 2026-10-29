@@ -700,7 +700,9 @@ export class Api1CMock implements Api1C {
       materials: materialsFor(workshopId),
       stock: stockLines(workshopId),
       open_shifts: Array.from(shifts.values())
-        .filter((s) => s.status === "open" && (s as ShiftWithWorkshop).workshop_id === workshopId)
+        .filter(
+          (s) => s.status === "open" && !s.deletion_mark && (s as ShiftWithWorkshop).workshop_id === workshopId,
+        )
         // Итоги по открытой смене нужны карточке рабочего места (Д-4); в контракте
         // поля необязательные, так что 1С может их и не отдавать.
         .map(({ id, number, date, shift_no, status, version, responsible, products }) => ({
@@ -755,6 +757,7 @@ export class Api1CMock implements Api1C {
           defect_total: round(s.products.reduce((sum, p) => sum + p.defect_qty, 0)),
           closed_at: s.closed_at ?? null,
           accounting_status: s.status === "closed" ? (s.accounting?.status ?? null) : null,
+          deletion_mark: !!s.deletion_mark,
         }),
       );
 
@@ -787,9 +790,11 @@ export class Api1CMock implements Api1C {
 
   async openShift(workshopId: Id, date: string, shiftNo: 1 | 2): Promise<Shift> {
     await this.wait();
+    // Помеченная на удаление смена не мешает открыть новую с тем же номером.
     const existing = Array.from(shifts.values()).find(
       (s) =>
         s.status === "open" &&
+        !s.deletion_mark &&
         s.date === date &&
         s.shift_no === shiftNo &&
         (s as ShiftWithWorkshop).workshop_id === workshopId,
@@ -826,6 +831,9 @@ export class Api1CMock implements Api1C {
     if (shift.status === "closed") {
       throw new Api1CError("state", "Смена закрыта, правка запрещена", 409);
     }
+    if (shift.deletion_mark) {
+      throw new Api1CError("state", "Смена помечена на удаление, правка запрещена", 409);
+    }
     checkVersion(shift.version, version, structuredClone(shift));
     Object.assign(shift, state, { version: bump(shift.version) });
     persist();
@@ -842,6 +850,9 @@ export class Api1CMock implements Api1C {
       version: shift.version,
     });
 
+    if (shift.deletion_mark) {
+      throw new Api1CError("state", "Смена помечена на удаление: снимите пометку, чтобы закрыть", 409);
+    }
     // Повтор по закрытой смене возвращает её текущее состояние, дубль невозможен.
     if (shift.status === "closed" && shift.accounting) {
       return { ok: true, shift: brief(), accounting: structuredClone(shift.accounting) };
@@ -936,13 +947,29 @@ export class Api1CMock implements Api1C {
     return { ok: true as const, shift: structuredClone(shift) as Shift };
   }
 
-  async deleteShift(shiftId: Id, opts: { version?: string } = {}) {
+  async markShiftDeletion(shiftId: Id, mark: boolean, opts: { version?: string } = {}) {
     await this.wait();
     const shift = requireShift(shiftId);
-    // Черновик можно убрать, пока он открыт: в учёте его ещё нет. 1С ставит
-    // пометку на удаление и не отдаёт смену в списках; заглушке хватает убрать её.
+    // Как в 1С: черновик не стирается, а получает пометку. Закрытую смену
+    // так не убрать, сначала её переоткрывает администратор.
     if (shift.status === "closed") {
-      throw new Api1CError("state", "Смена закрыта: удалить можно только открытую", 409);
+      throw new Api1CError("state", "Закрытую смену нельзя пометить на удаление", 409);
+    }
+    checkVersion(shift.version, opts.version, structuredClone(shift));
+    shift.deletion_mark = mark;
+    shift.version = bump(shift.version);
+    persist();
+    return { ok: true as const, shift: structuredClone(shift) };
+  }
+
+  async deleteShift(shiftId: Id, opts: { version?: string } = {}) {
+    await this.wait();
+    if (!this.opts.isAdmin) {
+      throw new Api1CError("forbidden", "Недостаточно прав для этого действия", 403);
+    }
+    const shift = requireShift(shiftId);
+    if (!shift.deletion_mark) {
+      throw new Api1CError("state", "Сначала смену нужно пометить на удаление", 409);
     }
     checkVersion(shift.version, opts.version, structuredClone(shift));
     shifts.delete(shiftId);

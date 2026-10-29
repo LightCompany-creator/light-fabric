@@ -138,6 +138,9 @@ export function ShiftScreen({ shiftId }: { shiftId: string }) {
   // чтобы человек видел, какую смену он ведёт.
   const head = shift.shift ?? context.open_shifts.find((s) => s.id === shiftId) ?? null;
   const closed = head?.status === "closed";
+  // Помеченная на удаление смена не ведётся: только просмотр, снять пометку или удалить.
+  const marked = !!shift.shift?.deletion_mark;
+  const readOnly = closed || marked;
 
   // Итог выпуска подтверждает человек. Пока он не подтверждён, закрывать нельзя:
   // иначе 1С не приходует продукцию и не спишет материалы, а смена будет выглядеть сданной.
@@ -160,6 +163,7 @@ export function ShiftScreen({ shiftId }: { shiftId: string }) {
               {closed && shift.shift?.accounting?.status === "pending" ? (
                 <StatusBadge kind="pending" className="ml-2 align-middle" />
               ) : null}
+              {marked ? <StatusBadge kind="marked" className="ml-2 align-middle" /> : null}
             </h1>
             <p className="text-sm text-muted-foreground">
               {head?.date} · {head?.shift_no} смена · {workshop?.name}
@@ -168,7 +172,7 @@ export function ShiftScreen({ shiftId }: { shiftId: string }) {
         </div>
         <div className="flex items-center gap-2">
           <SyncBadge status={shift.sync} />
-          {!closed ? (
+          {!readOnly ? (
             <Button variant="outline" size="sm" onClick={() => void shift.saveNow()}>
               <Save className="mr-2 h-4 w-4" />
               Сохранить
@@ -201,17 +205,21 @@ export function ShiftScreen({ shiftId }: { shiftId: string }) {
         <MineCopy context={context} mine={shift.mine} onDismiss={shift.dismissMine} />
       ) : null}
 
-      <WorkersSection context={context} shift={shift} disabled={closed} />
-      <OutputsSection context={context} shift={shift} disabled={closed} />
-      <ProductsSection context={context} shift={shift} disabled={closed} />
-      <MaterialsSection context={context} shift={shift} closed={closed} />
-      <CloseSection
-        shift={shift}
-        disabled={closed}
-        workshopId={workshop?.id}
-        needsProducts={needsProducts}
-        context={context}
-      />
+      <WorkersSection context={context} shift={shift} disabled={readOnly} />
+      <OutputsSection context={context} shift={shift} disabled={readOnly} />
+      <ProductsSection context={context} shift={shift} disabled={readOnly} />
+      <MaterialsSection context={context} shift={shift} closed={readOnly} />
+      {marked ? (
+        <MarkedBlock shift={shift} workshopId={workshop?.id} />
+      ) : (
+        <CloseSection
+          shift={shift}
+          disabled={closed}
+          workshopId={workshop?.id}
+          needsProducts={needsProducts}
+          context={context}
+        />
+      )}
     </div>
   );
 }
@@ -862,7 +870,11 @@ function MaterialsSection({
                 </div>
               ))}
               <p className="text-xs text-muted-foreground">
-                {reflected ? "Списано при отражении в учёте." : "Будет списано при отражении в учёте."}
+                {shift.shift?.status !== "closed"
+                  ? ""
+                  : reflected
+                    ? "Списано при отражении в учёте."
+                    : "Будет списано при отражении в учёте."}
               </p>
             </>
           )}
@@ -1135,7 +1147,7 @@ function CloseSection({
           </p>
         ) : null}
 
-        <DeleteDraft shift={shift} workshopId={workshopId} />
+        <MarkForDeletion shift={shift} workshopId={workshopId} />
 
         {/* Кнопка закрытия прижата к низу экрана (Д-5): видна без прокрутки,
             пока смена открыта. Логика закрытия остаётся здесь же. */}
@@ -1158,33 +1170,35 @@ function CloseSection({
 
 // ---------- пометка на удаление ----------
 
+/** Ответ платформы без тела на неизвестный метод сервиса: у 1С его ещё нет. */
+function notSupported(e: unknown): boolean {
+  return e instanceof Api1CError && (e.httpStatus === 405 || (e.httpStatus === 404 && !e.isUserFacing));
+}
+
 /**
- * Открытая смена это черновик: в учёте её ещё нет, убрать безопасно (решение
- * Наиры 29.10). Например, смену открыли по ошибке не той датой или не тем номером.
- * 1С не стирает документ, а ставит ему пометку на удаление: смена пропадает
- * из списков, снять пометку можно в 1С. Закрытую смену так убрать нельзя:
- * сначала её переоткрывает администратор.
+ * Как в 1С: открытая смена (черновик) не стирается, а получает пометку на удаление
+ * (решение Наиры 29.10). Например, смену открыли по ошибке не той датой или не тем
+ * номером. Помеченная остаётся в истории, её можно снять; окончательно удаляет
+ * только администратор. Закрытую смену так не убрать: сначала её переоткрывает
+ * администратор.
  */
-function DeleteDraft({ shift, workshopId }: { shift: ReturnType<typeof useShift>; workshopId?: string }) {
-  const router = useRouter();
+function MarkForDeletion({ shift, workshopId }: { shift: ReturnType<typeof useShift>; workshopId?: string }) {
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
-  async function handleDelete() {
+  async function handleMark() {
     setBusy(true);
     setFailure(null);
     try {
-      await shift.remove();
+      await shift.markDeletion(true);
       invalidateWorkshopContext(workshopId);
-      router.replace("/w");
+      setAsking(false);
     } catch (e) {
-      // Метода удаления у сервиса 1С может ещё не быть: платформа отвечает 404/405 без тела.
-      if (e instanceof Api1CError && (e.httpStatus === 405 || (e.httpStatus === 404 && !e.isUserFacing))) {
-        setFailure("1С не пометила смену на удаление: на стороне 1С это ещё не включено.");
-      } else {
-        setFailure(describeError(e));
-      }
+      setFailure(
+        notSupported(e) ? "1С не пометила смену на удаление: на стороне 1С это ещё не включено." : describeError(e),
+      );
+    } finally {
       setBusy(false);
     }
   }
@@ -1205,12 +1219,12 @@ function DeleteDraft({ shift, workshopId }: { shift: ReturnType<typeof useShift>
   return (
     <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
       <p className="font-medium">
-        Пометить смену {shift.shift?.number ?? ""} на удаление? Она пропадёт из списков, снять
-        пометку можно в 1С.
+        Пометить смену {shift.shift?.number ?? ""} на удаление? Она останется в истории с пометкой,
+        удалить окончательно может только администратор.
       </p>
       {failure ? <p className="text-destructive">{failure}</p> : null}
       <div className="flex flex-wrap gap-2">
-        <Button variant="destructive" className="h-11" onClick={() => void handleDelete()} disabled={busy}>
+        <Button variant="destructive" className="h-11" onClick={() => void handleMark()} disabled={busy}>
           {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
           Пометить
         </Button>
@@ -1219,6 +1233,89 @@ function DeleteDraft({ shift, workshopId }: { shift: ReturnType<typeof useShift>
         </Button>
       </div>
     </div>
+  );
+}
+
+/** Смена помечена на удаление: снять пометку может любой, удалить окончательно только администратор. */
+function MarkedBlock({ shift, workshopId }: { shift: ReturnType<typeof useShift>; workshopId?: string }) {
+  const router = useRouter();
+  const { me } = useApi1C();
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  async function run(action: () => Promise<void>, unsupported: string) {
+    setBusy(true);
+    setFailure(null);
+    try {
+      await action();
+    } catch (e) {
+      setFailure(notSupported(e) ? unsupported : describeError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const unmark = () =>
+    run(async () => {
+      await shift.markDeletion(false);
+      invalidateWorkshopContext(workshopId);
+    }, "1С не сняла пометку: на стороне 1С это ещё не включено.");
+
+  const removeForever = () =>
+    run(async () => {
+      await shift.remove();
+      invalidateWorkshopContext(workshopId);
+      router.replace("/w");
+    }, "1С не удалила смену: на стороне 1С это ещё не включено.");
+
+  return (
+    <Card id="close" className="scroll-mt-16 border-red-300">
+      <CardContent className="space-y-3 pt-6 text-sm">
+        <p className="font-medium">Смена помечена на удаление.</p>
+        <p className="text-muted-foreground">Удалить окончательно может только администратор.</p>
+        {failure ? <p className="text-destructive">{failure}</p> : null}
+
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" className="h-11" onClick={() => void unmark()} disabled={busy}>
+            {busy && !confirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Снять пометку
+          </Button>
+          {me?.is_admin && !confirming ? (
+            <Button
+              variant="ghost"
+              className="h-11 text-destructive hover:text-destructive"
+              onClick={() => setConfirming(true)}
+              disabled={busy}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Удалить окончательно
+            </Button>
+          ) : null}
+        </div>
+
+        {me?.is_admin && confirming ? (
+          <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 p-3">
+            <p className="font-medium">
+              Удалить смену {shift.shift?.number ?? ""} окончательно? Вернуть её будет нельзя.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="destructive" className="h-11" onClick={() => void removeForever()} disabled={busy}>
+                {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                Удалить
+              </Button>
+              <Button variant="outline" className="h-11" onClick={() => setConfirming(false)} disabled={busy}>
+                Отмена
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        <Button variant="outline" className="h-11" onClick={() => router.push("/w")}>
+          К рабочему месту
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 

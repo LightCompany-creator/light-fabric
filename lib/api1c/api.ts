@@ -39,9 +39,13 @@ export interface Api1C {
   closeShift(shiftId: Id, opts?: { version?: string }): Promise<CloseShiftResult>;
   reopenShift(shiftId: Id, reason: string): Promise<{ ok: true; shift: Shift }>;
   /**
-   * Убрать черновик: открытую смену, ещё не отражённую в учёте. 1С ставит
-   * документу пометку на удаление и больше не отдаёт его в списках. Закрытую
-   * сначала переоткрывает администратор. DELETE /shifts/{id} с If-Match.
+   * Поставить или снять пометку на удаление (как в 1С). Только у открытой смены,
+   * не отражённой в учёте. POST /shifts/{id}/deletion-mark с If-Match.
+   */
+  markShiftDeletion(shiftId: Id, mark: boolean, opts?: { version?: string }): Promise<{ ok: true; shift: Shift }>;
+  /**
+   * Удалить окончательно смену, помеченную на удаление. Только администратор.
+   * DELETE /shifts/{id} с If-Match.
    */
   deleteShift(shiftId: Id, opts?: { version?: string }): Promise<{ ok: true }>;
 

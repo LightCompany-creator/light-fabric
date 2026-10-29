@@ -104,7 +104,8 @@ export function Workspace() {
 
   const today = localDate();
   // Сегодняшние сверху, затем незакрытые прошлых дней.
-  const openShifts = [...(context?.open_shifts ?? [])].sort(
+  // Помеченные на удаление смены среди идущих не показываем, даже если 1С их отдала.
+  const openShifts = [...(context?.open_shifts ?? [])].filter((s) => !s.deletion_mark).sort(
     (a, b) => b.date.localeCompare(a.date) || a.shift_no - b.shift_no,
   );
   // Кнопка «Открыть N смену» относится к сегодняшнему дню: вчерашняя незакрытая

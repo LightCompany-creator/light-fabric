@@ -18,7 +18,8 @@ export type StatusKind =
   | "waiting-me"
   | "waiting-other"
   | "unconfirmed"
-  | "confirmed";
+  | "confirmed"
+  | "unclosed";
 
 const STATUS: Record<StatusKind, { label: string; className: string; dot?: string }> = {
   open: { label: "открыта", className: "bg-primary/10 text-primary" },
@@ -32,6 +33,8 @@ const STATUS: Record<StatusKind, { label: string; className: string; dot?: strin
   },
   unconfirmed: { label: "не подтверждено", className: "bg-slate-100 text-slate-600" },
   confirmed: { label: "подтверждено", className: "bg-emerald-100 text-emerald-800" },
+  // Открытая смена прошлого дня: её забыли закрыть.
+  unclosed: { label: "не закрыта", className: "bg-amber-100 text-amber-900", dot: "bg-amber-600" },
 };
 
 const base =

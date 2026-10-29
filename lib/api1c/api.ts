@@ -38,6 +38,11 @@ export interface Api1C {
    */
   closeShift(shiftId: Id, opts?: { version?: string }): Promise<CloseShiftResult>;
   reopenShift(shiftId: Id, reason: string): Promise<{ ok: true; shift: Shift }>;
+  /**
+   * Удалить черновик: открытую смену, ещё не отражённую в учёте. Закрытую сначала
+   * переоткрывает администратор. DELETE /shifts/{id} с If-Match.
+   */
+  deleteShift(shiftId: Id, opts?: { version?: string }): Promise<{ ok: true }>;
 
   listTransfers(query: TransfersQuery): Promise<Page<TransferHead>>;
   getTransfer(transferId: Id): Promise<Transfer>;

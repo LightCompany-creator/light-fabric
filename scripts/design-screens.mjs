@@ -238,7 +238,7 @@ async function main() {
     await snap(cdp, "workplace");
 
     // история
-    await cdp.eval("__lf.click('История смен'); true");
+    await cdp.eval("__lf.click('Все смены и архив'); true");
     await waitFor(cdp, "return document.querySelectorAll('a[href^=\"/w/shift?id=\"]').length > 0");
     await snap(cdp, "history");
 

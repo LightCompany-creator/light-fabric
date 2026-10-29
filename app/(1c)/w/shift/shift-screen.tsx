@@ -1135,6 +1135,8 @@ function CloseSection({
           </p>
         ) : null}
 
+        <DeleteDraft shift={shift} workshopId={workshopId} />
+
         {/* Кнопка закрытия прижата к низу экрана (Д-5): видна без прокрутки,
             пока смена открыта. Логика закрытия остаётся здесь же. */}
         <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-card/95 p-3 backdrop-blur">
@@ -1151,6 +1153,69 @@ function CloseSection({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// ---------- удаление черновика ----------
+
+/**
+ * Открытая смена это черновик: в учёте её ещё нет, удалить безопасно (решение
+ * Наиры 29.10). Например, смену открыли по ошибке не той датой или не тем номером.
+ * Закрытую смену удалить нельзя: сначала её переоткрывает администратор.
+ */
+function DeleteDraft({ shift, workshopId }: { shift: ReturnType<typeof useShift>; workshopId?: string }) {
+  const router = useRouter();
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  async function handleDelete() {
+    setBusy(true);
+    setFailure(null);
+    try {
+      await shift.remove();
+      invalidateWorkshopContext(workshopId);
+      router.replace("/w");
+    } catch (e) {
+      // Метода удаления у сервиса 1С может ещё не быть: платформа отвечает 404/405 без тела.
+      if (e instanceof Api1CError && (e.httpStatus === 405 || (e.httpStatus === 404 && !e.isUserFacing))) {
+        setFailure("1С не удалила смену: удаление черновиков на стороне 1С ещё не включено.");
+      } else {
+        setFailure(describeError(e));
+      }
+      setBusy(false);
+    }
+  }
+
+  if (!asking) {
+    return (
+      <Button
+        variant="ghost"
+        className="h-11 text-destructive hover:text-destructive"
+        onClick={() => setAsking(true)}
+      >
+        <Trash2 className="mr-2 h-4 w-4" />
+        Удалить смену
+      </Button>
+    );
+  }
+
+  return (
+    <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+      <p className="font-medium">
+        Удалить смену {shift.shift?.number ?? ""}? Всё введённое в ней пропадёт.
+      </p>
+      {failure ? <p className="text-destructive">{failure}</p> : null}
+      <div className="flex flex-wrap gap-2">
+        <Button variant="destructive" className="h-11" onClick={() => void handleDelete()} disabled={busy}>
+          {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+          Удалить
+        </Button>
+        <Button variant="outline" className="h-11" onClick={() => setAsking(false)} disabled={busy}>
+          Отмена
+        </Button>
+      </div>
+    </div>
   );
 }
 

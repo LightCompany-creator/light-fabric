@@ -254,6 +254,11 @@ export class Api1CClient implements Api1C {
     });
   }
 
+  /** Удалить черновик смены (открытую, не отражённую в учёте). */
+  deleteShift(shiftId: Id, opts: { version?: string } = {}) {
+    return this.request<{ ok: true }>(`/shifts/${shiftId}`, { method: "DELETE", version: opts.version });
+  }
+
   /** Переоткрыть закрытую смену. Только администратор. */
   reopenShift(shiftId: Id, reason: string) {
     return this.request<{ ok: true; shift: Shift }>(`/shifts/${shiftId}/reopen`, {

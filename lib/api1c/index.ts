@@ -10,7 +10,7 @@ export type { Api1C } from "./api";
 export * from "./types";
 export { Api1CClient, Api1CError, Api1COfflineError, basicAuthHeader } from "./client";
 export { Api1CMock } from "./mock";
-export { localDate, daysAgo } from "./dates";
+export { localDate, daysAgo, formatDay } from "./dates";
 
 export type Credentials = { login: string; password: string };
 

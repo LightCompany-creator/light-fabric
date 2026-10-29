@@ -10,8 +10,9 @@ import { useRouter } from "next/navigation";
 import { ChevronRight, Loader2, LogOut, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { localDate } from "@/lib/api1c";
-import type { StockLine, WorkshopRef } from "@/lib/api1c";
+import Link from "next/link";
+import { daysAgo, formatDay, localDate } from "@/lib/api1c";
+import type { ShiftHead, StockLine, WorkshopRef } from "@/lib/api1c";
 import { rolesLabel, warehousesOf, withWarehouses, type WarehouseView } from "@/lib/api1c/warehouses";
 import { describeError, useApi1C } from "@/lib/api1c/provider";
 import { invalidateWorkshopContext, useWorkshopContext } from "@/lib/api1c/use-workshop-context";
@@ -34,6 +35,25 @@ export function Workspace() {
   const { context, loading, error: contextError, staleSince, reload } = useWorkshopContext(workshop?.id);
   const [error, setError] = useState<string | null>(null);
   const [opening, setOpening] = useState<1 | 2 | null>(null);
+  const [recent, setRecent] = useState<ShiftHead[] | null>(null);
+
+  // Последние смены за неделю: видно, что было закрыто и что ждёт учёта, без
+  // похода в историю. Без связи список просто не показываем.
+  useEffect(() => {
+    if (status !== "ready" || !workshop || !context) return;
+    let cancelled = false;
+    api
+      .listShifts({ workshop: workshop.id, from: daysAgo(7), status: "all", page_size: 20 })
+      .then((page) => {
+        if (!cancelled) setRecent(page.items);
+      })
+      .catch(() => {
+        if (!cancelled) setRecent(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, status, workshop, context]);
 
   /** Открыть смену на сегодня. Если такая уже открыта, 1С вернёт её же. */
   const openShift = useCallback(
@@ -82,8 +102,15 @@ export function Workspace() {
     );
   }
 
-  const openShifts = context?.open_shifts ?? [];
-  const isOpen = (no: 1 | 2) => openShifts.some((s) => s.shift_no === no);
+  const today = localDate();
+  // Сегодняшние сверху, затем незакрытые прошлых дней.
+  const openShifts = [...(context?.open_shifts ?? [])].sort(
+    (a, b) => b.date.localeCompare(a.date) || a.shift_no - b.shift_no,
+  );
+  // Кнопка «Открыть N смену» относится к сегодняшнему дню: вчерашняя незакрытая
+  // смена с тем же номером не должна её прятать.
+  const isOpen = (no: 1 | 2) => openShifts.some((s) => s.shift_no === no && s.date === today);
+  const recentClosed = (recent ?? []).filter((s) => s.status === "closed").slice(0, 6);
   const pending = context?.pending_incoming_transfers ?? 0;
   const stockGroups = context ? groupStock(context.stock, withWarehouses(workshop, context.workshop)) : [];
 
@@ -160,17 +187,21 @@ export function Workspace() {
                   <p className="text-sm text-muted-foreground">{context.workshop.name}</p>
                 </div>
               ) : (
-                openShifts.map((s) => (
+                openShifts.map((s) => {
+                  const stale = s.date < today;
+                  return (
                   <div key={s.id} className="space-y-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-xl font-bold">{s.shift_no} смена идёт</p>
+                        <p className="text-xl font-bold">
+                          {stale ? `${s.shift_no} смена, ${formatDay(s.date)}` : `${s.shift_no} смена идёт`}
+                        </p>
                         <p className="truncate text-sm text-muted-foreground">
                           {s.number} · {s.date}
                           {s.responsible ? ` · ${s.responsible}` : ""}
                         </p>
                       </div>
-                      <StatusBadge kind="open" className="h-8 shrink-0 text-sm" />
+                      <StatusBadge kind={stale ? "unclosed" : "open"} className="h-8 shrink-0 text-sm" />
                     </div>
                     {/* Итоги по открытой смене в контракте необязательные: без них цифры не рисуем. */}
                     {s.produced_total != null ? (
@@ -183,10 +214,11 @@ export function Workspace() {
                       className="h-[60px] w-full text-lg"
                       onClick={() => router.push(`/w/shift?id=${s.id}`)}
                     >
-                      Продолжить {s.shift_no} смену
+                      {stale ? `Закрыть смену за ${formatDay(s.date)}` : `Продолжить ${s.shift_no} смену`}
                     </Button>
                   </div>
-                ))
+                  );
+                })
               )}
 
               <div className="flex flex-wrap gap-2 border-t pt-3">
@@ -212,10 +244,43 @@ export function Workspace() {
                     Открыть 2 смену
                   </Button>
                 ) : null}
-                <Button className="h-12" variant="ghost" onClick={() => router.push("/w/shifts")}>
-                  История смен
-                </Button>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Последние смены</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {recentClosed.length === 0 ? (
+                <p className="text-sm text-muted-foreground">За неделю закрытых смен нет.</p>
+              ) : (
+                recentClosed.map((s) => (
+                  <Link
+                    key={s.id}
+                    href={`/w/shift?id=${s.id}`}
+                    className="flex min-h-14 items-center justify-between gap-3 rounded-md border px-3 py-2 transition-colors hover:bg-muted/60"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-[15px] font-semibold">
+                        {formatDay(s.date)}, {s.shift_no} смена
+                      </span>
+                      <span className="block truncate text-sm text-muted-foreground">{s.number}</span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      <span className="text-[15px] tabular-nums">
+                        {s.produced_total ?? 0}
+                        {s.defect_total ? `, брак ${s.defect_total}` : ""}
+                      </span>
+                      <StatusBadge kind={s.accounting_status === "pending" ? "pending" : "closed"} />
+                    </span>
+                  </Link>
+                ))
+              )}
+              <Button variant="outline" className="h-12 w-full" onClick={() => router.push("/w/shifts")}>
+                Все смены и архив
+              </Button>
             </CardContent>
           </Card>
 

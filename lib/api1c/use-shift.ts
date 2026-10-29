@@ -109,6 +109,8 @@ export type UseShift = {
   refresh: () => Promise<void>;
   /** Переоткрыть закрытую смену. Только администратор. */
   reopen: (reason: string) => Promise<void>;
+  /** Удалить черновик (открытую смену). Черновик на планшете тоже стирается. */
+  remove: () => Promise<void>;
   /** Повторить получение версии 1С, если при расхождении не было связи. */
   retryConflict: () => Promise<void>;
 };
@@ -393,6 +395,20 @@ export function useShift(shiftId: string, opts: { knownVersion?: string } = {}):
     [api, shiftId, applyState, commitVersion],
   );
 
+  const remove = useCallback(async () => {
+    // Автосохранение останавливаем до запроса: иначе оно вернуло бы смену в 1С.
+    blocked.current = true;
+    if (timer.current) clearTimeout(timer.current);
+    try {
+      await api.deleteShift(shiftId, { version: versionRef.current });
+    } catch (e) {
+      blocked.current = false;
+      throw e;
+    }
+    dropKey(draftKey(shiftId));
+    dropKey(mineKey(shiftId));
+  }, [api, shiftId]);
+
   return {
     shift,
     state,
@@ -406,6 +422,7 @@ export function useShift(shiftId: string, opts: { knownVersion?: string } = {}):
     close,
     refresh,
     reopen,
+    remove,
     retryConflict,
   };
 }

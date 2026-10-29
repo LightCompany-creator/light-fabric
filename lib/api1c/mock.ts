@@ -790,14 +790,18 @@ export class Api1CMock implements Api1C {
 
   async openShift(workshopId: Id, date: string, shiftNo: 1 | 2): Promise<Shift> {
     await this.wait();
-    // Номер смены за день один, даже если смена помечена на удаление: вернётся она же.
-    const existing = Array.from(shifts.values()).find(
+    // На участке одна смена с такими датой и номером в любом состоянии: открытая,
+    // помеченная на удаление или закрытая. Повтор возвращает её же (v0.5).
+    const same = Array.from(shifts.values()).filter(
       (s) =>
-        s.status === "open" &&
         s.date === date &&
         s.shift_no === shiftNo &&
         (s as ShiftWithWorkshop).workshop_id === workshopId,
     );
+    // Дубли могли остаться с прошлых этапов: сначала открытая, потом последняя по времени.
+    const existing =
+      same.find((s) => s.status === "open") ??
+      same.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))[0];
     if (existing) return structuredClone(existing);
 
     const shift: ShiftWithWorkshop = {

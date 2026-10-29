@@ -111,6 +111,10 @@ export function Workspace() {
   // Кнопка «Открыть N смену» относится к сегодняшнему дню: вчерашняя незакрытая
   // смена с тем же номером не должна её прятать.
   const isOpen = (no: 1 | 2) => openShifts.some((s) => s.shift_no === no && s.date === today);
+  // Закрытая сегодняшняя смена занимает свой номер: вторую такую 1С не откроет (v0.5).
+  const isClosed = (no: 1 | 2) =>
+    (recent ?? []).some((s) => s.status === "closed" && s.shift_no === no && s.date === today);
+  const canOpen = (no: 1 | 2) => !isOpen(no) && !isClosed(no);
   const recentClosed = (recent ?? []).filter((s) => s.status === "closed").slice(0, 6);
   const pending = context?.pending_incoming_transfers ?? 0;
   const stockGroups = context ? groupStock(context.stock, withWarehouses(workshop, context.workshop)) : [];
@@ -222,30 +226,32 @@ export function Workspace() {
                 })
               )}
 
-              <div className="flex flex-wrap gap-2 border-t pt-3">
-                {!isOpen(1) ? (
-                  <Button
-                    className="h-12 flex-1 sm:flex-none"
-                    variant={openShifts.length === 0 ? "default" : "outline"}
-                    onClick={() => void openShift(1)}
-                    disabled={opening !== null}
-                  >
-                    {opening === 1 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Открыть 1 смену
-                  </Button>
-                ) : null}
-                {!isOpen(2) ? (
-                  <Button
-                    className="h-12 flex-1 sm:flex-none"
-                    variant="outline"
-                    onClick={() => void openShift(2)}
-                    disabled={opening !== null}
-                  >
-                    {opening === 2 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Открыть 2 смену
-                  </Button>
-                ) : null}
-              </div>
+              {canOpen(1) || canOpen(2) ? (
+                <div className="flex flex-wrap gap-2 border-t pt-3">
+                  {canOpen(1) ? (
+                    <Button
+                      className="h-12 flex-1 sm:flex-none"
+                      variant={openShifts.length === 0 ? "default" : "outline"}
+                      onClick={() => void openShift(1)}
+                      disabled={opening !== null}
+                    >
+                      {opening === 1 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Открыть 1 смену
+                    </Button>
+                  ) : null}
+                  {canOpen(2) ? (
+                    <Button
+                      className="h-12 flex-1 sm:flex-none"
+                      variant="outline"
+                      onClick={() => void openShift(2)}
+                      disabled={opening !== null}
+                    >
+                      {opening === 2 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Открыть 2 смену
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 

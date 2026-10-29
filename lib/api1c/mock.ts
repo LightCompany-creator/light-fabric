@@ -546,22 +546,37 @@ function validateShift(shift: ShiftWithWorkshop): ValidationDetail[] {
 }
 
 /**
- * Второй шаг закрытия: отражение в учёте. Смену он не блокирует: при неудаче
- * возвращает pending с причиной, остатки при этом не меняются.
+ * Второй шаг закрытия: отражение в учёте. Смену он не блокирует.
+ *
+ * П-1, вариант «б» (решение 29.10.2026): продукция приходуется всегда, а списание
+ * материалов при нехватке ждёт разбора бухгалтерии. Такая смена остаётся pending,
+ * но с отчётом производства в documents: по нему видно, что продукция уже на складе.
+ * Повторное отражение продукцию второй раз не приходует.
  */
 function reflectInAccounting(shift: ShiftWithWorkshop): ShiftAccounting {
   const workshopId = shift.workshop_id ?? "w-lit";
-  const pending = (message: string): ShiftAccounting => ({
-    status: "pending",
-    message,
-    documents: { production_report: null, payroll: null },
-  });
 
   if (isPeriodClosed(shift.date)) {
-    return pending(`Дата смены ${shift.date} попадает в закрытый период`);
+    return {
+      status: "pending",
+      message: `Дата смены ${shift.date} попадает в закрытый период`,
+      documents: { production_report: null, payroll: null },
+    };
   }
 
   const wh = whOf(workshopId);
+  const before = shift.accounting?.documents;
+  // Строки с продукцией идут в отчёт производства, без продукции в начисление ЗП.
+  const hasProduction = shift.products.length > 0 || shift.outputs.some((o) => o.product_id);
+  const hasUnproductive = shift.outputs.some((o) => !o.product_id);
+  if (!before?.production_report) {
+    for (const p of shift.products) addOn(wh.output, p.product_id, p.qty);
+  }
+  const documents = {
+    production_report: before?.production_report ?? (hasProduction ? newDocument(shift.date) : null),
+    payroll: before?.payroll ?? (hasUnproductive ? newDocument(shift.date) : null),
+  };
+
   const need = new Map<Id, number>();
   for (const m of shift.materials) need.set(m.item_id, (need.get(m.item_id) ?? 0) + m.qty);
   const needed = Array.from(need.entries());
@@ -571,25 +586,15 @@ function reflectInAccounting(shift: ShiftWithWorkshop): ShiftAccounting {
     const [itemId, qty] = short;
     const have = round(qtyOn(wh.materials, itemId));
     const unit = item(itemId).unit;
-    return pending(
-      `Недостаточно остатка: ${item(itemId).name}, доступно ${have} ${unit}, требуется ${round(qty)} ${unit}`,
-    );
+    return {
+      status: "pending",
+      message: `Недостаточно остатка: ${item(itemId).name}, доступно ${have} ${unit}, требуется ${round(qty)} ${unit}`,
+      documents,
+    };
   }
 
   for (const [itemId, qty] of needed) addOn(wh.materials, itemId, -qty);
-  for (const p of shift.products) addOn(wh.output, p.product_id, p.qty);
-
-  // Строки с продукцией идут в отчёт производства, без продукции в начисление ЗП.
-  const hasProduction = shift.products.length > 0 || shift.outputs.some((o) => o.product_id);
-  const hasUnproductive = shift.outputs.some((o) => !o.product_id);
-  return {
-    status: "done",
-    message: "",
-    documents: {
-      production_report: hasProduction ? newDocument(shift.date) : null,
-      payroll: hasUnproductive ? newDocument(shift.date) : null,
-    },
-  };
+  return { status: "done", message: "", documents };
 }
 
 function requireShift(id: Id): Shift {
@@ -777,10 +782,12 @@ export class Api1CMock implements Api1C {
     const shift = requireShift(shiftId) as ShiftWithWorkshop;
     // В жизни повторное отражение запускает бухгалтер, когда устранил причину.
     // Заглушка делает это сама при чтении: причина ушла, значит смена отразится.
+    // Повтор может и не дойти до конца, но продукцию оприходовать успеть: такой
+    // результат тоже сохраняем, иначе следующий повтор оприходует её ещё раз.
     if (shift.status === "closed" && shift.accounting?.status === "pending") {
-      const retried = reflectInAccounting(shift);
-      if (retried.status === "done") {
-        shift.accounting = retried;
+      const before = JSON.stringify(shift.accounting);
+      shift.accounting = reflectInAccounting(shift);
+      if (JSON.stringify(shift.accounting) !== before) {
         shift.version = bump(shift.version);
         persist();
       }
@@ -916,7 +923,8 @@ export class Api1CMock implements Api1C {
 
     // Если смена была отражена в учёте, 1С отменяет проведение. С 28.09 она
     // проверяет остаток продукции: если её уже передали дальше, отказывает.
-    if (shift.accounting?.status === "done") {
+    // По варианту «б» продукция оприходована и у смены, которая ждёт учёта.
+    if (shift.accounting?.documents.production_report) {
       const gone = shift.products
         .filter((p) => qtyOn(wh.output, p.product_id) < p.qty)
         .map((p) => ({
@@ -935,6 +943,8 @@ export class Api1CMock implements Api1C {
         );
       }
       for (const p of shift.products) addOn(wh.output, p.product_id, -p.qty);
+    }
+    if (shift.accounting?.status === "done") {
       for (const m of shift.materials) addOn(wh.materials, m.item_id, m.qty);
     }
 

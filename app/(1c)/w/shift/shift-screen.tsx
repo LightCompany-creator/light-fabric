@@ -1056,7 +1056,15 @@ function CloseSection({
 
           {accounting?.status === "pending" ? (
             <div className="space-y-2 rounded-md bg-muted p-3">
-              <p className="font-medium">Ждёт отражения в учёте</p>
+              {/* П-1, вариант «б»: продукция приходуется всегда, ждать может только списание материалов. */}
+              <p className="font-medium">
+                {docs?.production_report
+                  ? "Продукция оприходована, списание материалов ждёт разбора"
+                  : "Ждёт отражения в учёте"}
+              </p>
+              {reflected.length ? (
+                <p className="text-muted-foreground">В учёте: {reflected.join(", ")}.</p>
+              ) : null}
               {accounting.message ? (
                 <p className="text-muted-foreground">{accounting.message}</p>
               ) : null}
@@ -1340,10 +1348,13 @@ function ReopenBlock({
   context: WorkshopContext;
 }) {
   const { me, workshop } = useApi1C();
-  const reflected = shift.shift?.accounting?.status === "done";
+  const accounting = shift.shift?.accounting;
+  const reflected = accounting?.status === "done";
+  // П-1, вариант «б»: продукция оприходована и у смены, которая ждёт учёта.
+  const productPosted = reflected || Boolean(accounting?.documents?.production_report);
   // Выпуск лежит на складе продукции участка (v0.4): по нему и проверяем, не ушла ли продукция дальше.
   const outputWarehouse = outputWarehouseId(withWarehouses(workshop, context.workshop));
-  const gone = reflected
+  const gone = productPosted
     ? shift.state.products
         .map((p) => {
           const line = context.stock.find((x) => x.item_id === p.product_id);
@@ -1392,7 +1403,9 @@ function ReopenBlock({
       <p className="text-muted-foreground">
         {reflected
           ? "1С отменит отражение в учёте: приход продукции, списание материалов и начисление зарплаты."
-          : "В учёте смена ещё не отражена, отменять нечего."}
+          : productPosted
+            ? `1С отменит приход продукции${accounting?.documents?.payroll ? " и начисление зарплаты" : ""}.`
+            : "В учёте смена ещё не отражена, отменять нечего."}
       </p>
 
       {gone.length > 0 ? (

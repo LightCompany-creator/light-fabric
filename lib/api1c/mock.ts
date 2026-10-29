@@ -790,11 +790,10 @@ export class Api1CMock implements Api1C {
 
   async openShift(workshopId: Id, date: string, shiftNo: 1 | 2): Promise<Shift> {
     await this.wait();
-    // Помеченная на удаление смена не мешает открыть новую с тем же номером.
+    // Номер смены за день один, даже если смена помечена на удаление: вернётся она же.
     const existing = Array.from(shifts.values()).find(
       (s) =>
         s.status === "open" &&
-        !s.deletion_mark &&
         s.date === date &&
         s.shift_no === shiftNo &&
         (s as ShiftWithWorkshop).workshop_id === workshopId,

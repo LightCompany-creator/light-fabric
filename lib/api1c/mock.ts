@@ -939,7 +939,8 @@ export class Api1CMock implements Api1C {
   async deleteShift(shiftId: Id, opts: { version?: string } = {}) {
     await this.wait();
     const shift = requireShift(shiftId);
-    // Черновик можно удалить, пока он открыт: в учёте его ещё нет.
+    // Черновик можно убрать, пока он открыт: в учёте его ещё нет. 1С ставит
+    // пометку на удаление и не отдаёт смену в списках; заглушке хватает убрать её.
     if (shift.status === "closed") {
       throw new Api1CError("state", "Смена закрыта: удалить можно только открытую", 409);
     }

@@ -1156,12 +1156,14 @@ function CloseSection({
   );
 }
 
-// ---------- удаление черновика ----------
+// ---------- пометка на удаление ----------
 
 /**
- * Открытая смена это черновик: в учёте её ещё нет, удалить безопасно (решение
+ * Открытая смена это черновик: в учёте её ещё нет, убрать безопасно (решение
  * Наиры 29.10). Например, смену открыли по ошибке не той датой или не тем номером.
- * Закрытую смену удалить нельзя: сначала её переоткрывает администратор.
+ * 1С не стирает документ, а ставит ему пометку на удаление: смена пропадает
+ * из списков, снять пометку можно в 1С. Закрытую смену так убрать нельзя:
+ * сначала её переоткрывает администратор.
  */
 function DeleteDraft({ shift, workshopId }: { shift: ReturnType<typeof useShift>; workshopId?: string }) {
   const router = useRouter();
@@ -1179,7 +1181,7 @@ function DeleteDraft({ shift, workshopId }: { shift: ReturnType<typeof useShift>
     } catch (e) {
       // Метода удаления у сервиса 1С может ещё не быть: платформа отвечает 404/405 без тела.
       if (e instanceof Api1CError && (e.httpStatus === 405 || (e.httpStatus === 404 && !e.isUserFacing))) {
-        setFailure("1С не удалила смену: удаление черновиков на стороне 1С ещё не включено.");
+        setFailure("1С не пометила смену на удаление: на стороне 1С это ещё не включено.");
       } else {
         setFailure(describeError(e));
       }
@@ -1195,7 +1197,7 @@ function DeleteDraft({ shift, workshopId }: { shift: ReturnType<typeof useShift>
         onClick={() => setAsking(true)}
       >
         <Trash2 className="mr-2 h-4 w-4" />
-        Удалить смену
+        Пометить на удаление
       </Button>
     );
   }
@@ -1203,13 +1205,14 @@ function DeleteDraft({ shift, workshopId }: { shift: ReturnType<typeof useShift>
   return (
     <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
       <p className="font-medium">
-        Удалить смену {shift.shift?.number ?? ""}? Всё введённое в ней пропадёт.
+        Пометить смену {shift.shift?.number ?? ""} на удаление? Она пропадёт из списков, снять
+        пометку можно в 1С.
       </p>
       {failure ? <p className="text-destructive">{failure}</p> : null}
       <div className="flex flex-wrap gap-2">
         <Button variant="destructive" className="h-11" onClick={() => void handleDelete()} disabled={busy}>
           {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-          Удалить
+          Пометить
         </Button>
         <Button variant="outline" className="h-11" onClick={() => setAsking(false)} disabled={busy}>
           Отмена

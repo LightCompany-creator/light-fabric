@@ -103,6 +103,14 @@ function Unzip($zip, $dest) {
   if (-not (Test-Path $marker)) { Log "Распаковка не завершилась за 10 минут"; exit 1 }
 }
 
+function ResetAcl($path) {
+  # Права папки приложения должны быть как у корня сайта, иначе IIS не прочитает
+  # web.config и отдаст 500 на любой файл. Так случилось 04.11.2026, когда архив
+  # распаковывался во временную папку Windows и переносился оттуда вместе с её правами.
+  & icacls $path /reset /T /C /Q | Out-Null
+  if ($LASTEXITCODE -ne 0) { Log "icacls вернул код $($LASTEXITCODE), проверьте права на $path" }
+}
+
 function Swap($from, $to) {
   # IIS не держит папки со статикой, переименование обычно проходит. Если нет,
   # копируем файлы поверх: это дольше, но тоже приводит к новой версии.
@@ -122,6 +130,7 @@ if ($Rollback) {
   if (Test-Path $live) { Rename-Item -Path $live -NewName "$Folder.rolledback" }
   Rename-Item -Path $prev -NewName $Folder
   if (Test-Path "$live.rolledback") { Rename-Item -Path "$live.rolledback" -NewName "$Folder.prev" }
+  ResetAcl $live
   Log "Откат: $current -> $(InstalledVersion)"
   exit 0
 }
@@ -147,7 +156,9 @@ if (-not $asset.Success) { Log "В выпуске $version нет архива $
 $url = $asset.Groups[1].Value
 
 $zip = Join-Path $env:TEMP "$Folder-$version.zip"
-$unpack = Join-Path $env:TEMP "$Folder-unpack"
+# Распаковываем рядом с сайтом, а не во временную папку: так новая папка сразу
+# получает права корня сайта, и перенос на место их не портит.
+$unpack = Join-Path $SiteRoot "$Folder.unpack"
 Log "Скачиваю $url"
 $client = NewClient
 $client.DownloadFile($url, $zip)
@@ -160,6 +171,7 @@ if (Test-Path $new) { Remove-Item $new -Recurse -Force }
 if (Test-Path $prev) { Remove-Item $prev -Recurse -Force }
 Move-Item -Path $src -Destination $new
 Swap $new $live
+ResetAcl $live
 Remove-Item $zip -Force -ErrorAction SilentlyContinue
 Remove-Item $unpack -Recurse -Force -ErrorAction SilentlyContinue
 $was = $installed

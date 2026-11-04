@@ -8,7 +8,7 @@ import { Api1CMock, MOCK_PRODUCTION_SHOP } from "./mock";
 
 export type { Api1C } from "./api";
 export * from "./types";
-export { Api1CClient, Api1CError, Api1COfflineError, basicAuthHeader } from "./client";
+export { Api1CClient, Api1CError, Api1COfflineError, basicAuthHeader, isNotSupported } from "./client";
 export { Api1CMock } from "./mock";
 export { localDate, daysAgo, formatDay } from "./dates";
 

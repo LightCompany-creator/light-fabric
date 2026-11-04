@@ -16,6 +16,7 @@ import type { ShiftHead, StockLine, WorkshopRef } from "@/lib/api1c";
 import { rolesLabel, warehousesOf, withWarehouses, type WarehouseView } from "@/lib/api1c/warehouses";
 import { describeError, useApi1C } from "@/lib/api1c/provider";
 import { invalidateWorkshopContext, useWorkshopContext } from "@/lib/api1c/use-workshop-context";
+import { CancelShift } from "./cancel-shift";
 import { ChooseWorkshop } from "./choose-workshop";
 import { StatusBadge } from "./status-badge";
 
@@ -221,6 +222,17 @@ export function Workspace() {
                     >
                       {stale ? `Закрыть смену за ${formatDay(s.date)}` : `Продолжить ${s.shift_no} смену`}
                     </Button>
+                    {/* Пустую смену, открытую по ошибке, можно отменить отсюда. Итогов 1С может
+                        не отдать: тогда кнопка видна, а пустоту смены проверяет она сама. */}
+                    {!s.produced_total ? (
+                      <CancelShift
+                        shift={s}
+                        onDone={() => {
+                          invalidateWorkshopContext(workshop?.id);
+                          void reload(true);
+                        }}
+                      />
+                    ) : null}
                   </div>
                   );
                 })

@@ -84,6 +84,18 @@ function readDraft(shiftId: string): Draft | null {
   return "state" in raw ? raw : { state: raw };
 }
 
+/** В смене ничего не внесено: ни состава, ни выработки, ни итога, ни материалов. */
+export function isEmptyShiftState(state: Pick<ShiftState, "workers" | "outputs" | "products" | "materials">): boolean {
+  return !state.workers.length && !state.outputs.length && !state.products.length && !state.materials.length;
+}
+
+/** На этом планшете есть свои записи по смене: неотправленный черновик или копия после расхождения с 1С. */
+export function hasLocalShiftData(shiftId: string): boolean {
+  const draft = readDraft(shiftId);
+  const mine = readJson<ShiftState>(mineKey(shiftId));
+  return (!!draft && !isEmptyShiftState(draft.state)) || (!!mine && !isEmptyShiftState(mine));
+}
+
 // ---------- хук ----------
 
 export type UseShift = {

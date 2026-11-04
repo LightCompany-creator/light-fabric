@@ -24,7 +24,7 @@ import {
   invalidateWorkshopContext,
   useWorkshopContext,
 } from "@/lib/api1c/use-workshop-context";
-import { Api1CError } from "@/lib/api1c";
+import { Api1CError, isNotSupported as notSupported } from "@/lib/api1c";
 import { availableOn, materialsWarehouseId, outputWarehouseId, withWarehouses } from "@/lib/api1c/warehouses";
 import type {
   ShiftMaterial,
@@ -1177,11 +1177,6 @@ function CloseSection({
 }
 
 // ---------- пометка на удаление ----------
-
-/** Ответ платформы без тела на неизвестный метод сервиса: у 1С его ещё нет. */
-function notSupported(e: unknown): boolean {
-  return e instanceof Api1CError && (e.httpStatus === 405 || (e.httpStatus === 404 && !e.isUserFacing));
-}
 
 /**
  * Как в 1С: открытая смена (черновик) не стирается, а получает пометку на удаление

@@ -51,6 +51,11 @@ export class Api1CError extends Error {
   }
 }
 
+/** Ответ платформы без тела на неизвестный метод сервиса: у 1С его ещё нет. */
+export function isNotSupported(e: unknown): boolean {
+  return e instanceof Api1CError && (e.httpStatus === 405 || (e.httpStatus === 404 && !e.isUserFacing));
+}
+
 /**
  * Ошибки, которые отдаёт не сервис, а платформа 1С или веб-сервер: у них нет
  * JSON-тела (HTML от IIS, простой текст), поэтому разбираем по коду HTTP.

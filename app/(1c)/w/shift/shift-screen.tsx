@@ -31,6 +31,7 @@ import type {
   ShiftOutput,
   ShiftProduct,
   ShiftState,
+  WorkType,
   WorkshopContext,
 } from "@/lib/api1c";
 
@@ -43,11 +44,21 @@ function productLabel(p: { article?: string; name: string } | undefined): string
   return [p.article, p.name].filter((x) => x && x.trim()).join(", ");
 }
 
-/** Подсказка по итогу выпуска: сумма выработки в разрезе продукции. */
-function suggestProducts(outputs: ShiftOutput[]): ShiftProduct[] {
+/** Выпускающая ли операция. Пока 1С признак не отдаёт, выпускающими считаются все. */
+function isIssuing(workTypeId: string, workTypes: WorkType[]): boolean {
+  return workTypes.find((w) => w.id === workTypeId)?.issuing !== false;
+}
+
+/**
+ * Подсказка по итогу выпуска: выработка выпускающих операций в разрезе продукции.
+ * Сопутствующие (обрезка и т. п.) в выпуск не идут, только в зарплату: литьё 480
+ * и обрезка 480 дают 480 пар, а не 960. Брак тоже со строк выпускающих операций,
+ * как в колонке «Брак» отчёта производства.
+ */
+function suggestProducts(outputs: ShiftOutput[], workTypes: WorkType[]): ShiftProduct[] {
   const acc = new Map<string, ShiftProduct>();
   for (const line of outputs) {
-    if (!line.product_id) continue;
+    if (!line.product_id || !isIssuing(line.work_type_id, workTypes)) continue;
     const found = acc.get(line.product_id) ?? {
       product_id: line.product_id,
       qty: 0,
@@ -58,6 +69,19 @@ function suggestProducts(outputs: ShiftOutput[]): ShiftProduct[] {
     acc.set(line.product_id, found);
   }
   return Array.from(acc.values());
+}
+
+/** Строка для сверки итога: выработка по операциям одной продукции, если операций несколько. */
+function operationsOf(outputs: ShiftOutput[], productId: string, workTypes: WorkType[]): string {
+  const byType = new Map<string, number>();
+  for (const line of outputs) {
+    if (line.product_id !== productId) continue;
+    byType.set(line.work_type_id, (byType.get(line.work_type_id) ?? 0) + line.qty);
+  }
+  if (byType.size < 2) return "";
+  return Array.from(byType.entries())
+    .map(([id, qty]) => `${workTypes.find((w) => w.id === id)?.name ?? id} ${round3(qty)}`)
+    .join(" · ");
 }
 
 type MaterialNeed = {
@@ -241,7 +265,7 @@ function SectionNav({
   closed: boolean;
 }) {
   const { workers, outputs, products, materials } = shift.state;
-  const basis = products.length > 0 ? products : suggestProducts(outputs);
+  const basis = products.length > 0 ? products : suggestProducts(outputs, context.work_types);
   const produced = basis.reduce((sum, p) => sum + p.qty, 0);
   const materialLines = (materials.length > 0 ? materials : materialsBySpec(basis, context)).length;
 
@@ -689,7 +713,10 @@ function ProductsSection({
 }) {
   // Итог по операциям не равен числу готовых пар, поэтому цифру подтверждает
   // человек (вопрос В-3 контракта), а приложение только подсказывает.
-  const suggestion = useMemo(() => suggestProducts(shift.state.outputs), [shift.state.outputs]);
+  const suggestion = useMemo(
+    () => suggestProducts(shift.state.outputs, context.work_types),
+    [shift.state.outputs, context.work_types],
+  );
 
   // Пока человек печатает, поле показывает ровно то, что он набрал: иначе «12.»
   // превращалось бы в «12» на каждой букве, и дробь ввести было нельзя.
@@ -724,11 +751,13 @@ function ProductsSection({
           <>
             {rows.map((row) => {
               const product = context.products.find((p) => p.id === row.product_id);
+              const operations = operationsOf(shift.state.outputs, row.product_id, context.work_types);
               return (
                 <div key={row.product_id} className="grid gap-2 sm:grid-cols-[1fr_7rem_7rem]">
                   <div className="self-center text-sm">
                     <p className="font-medium">{product?.article || product?.name}</p>
                     {product?.article ? <p className="truncate text-muted-foreground">{product.name}</p> : null}
+                    {operations ? <p className="text-xs text-muted-foreground">{operations}</p> : null}
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Изготовлено</Label>
@@ -808,8 +837,8 @@ function MaterialsSection({
   // Считаем по подтверждённому итогу, а пока его нет, по подсказке из выработки.
   const { products, outputs, materials } = shift.state;
   const basis = useMemo(
-    () => (products.length > 0 ? products : suggestProducts(outputs)),
-    [products, outputs],
+    () => (products.length > 0 ? products : suggestProducts(outputs, context.work_types)),
+    [products, outputs, context.work_types],
   );
   const norm = useMemo(() => materialsBySpec(basis, context), [basis, context]);
   // Пока человек не правил строки, показываем норму; как только поправил, его версию.
@@ -1181,9 +1210,8 @@ function CloseSection({
 /**
  * Как в 1С: открытая смена (черновик) не стирается, а получает пометку на удаление
  * (решение Наиры 29.10). Например, смену открыли по ошибке не той датой или не тем
- * номером. Помеченная остаётся в истории, её можно снять; окончательно удаляет
- * только администратор. Закрытую смену так не убрать: сначала её переоткрывает
- * администратор.
+ * номером. Помеченная остаётся в истории, её можно снять; окончательно помеченные
+ * удаляют в 1С. Закрытую смену так не убрать: сначала её переоткрывает администратор.
  */
 function MarkForDeletion({ shift, workshopId }: { shift: ReturnType<typeof useShift>; workshopId?: string }) {
   const [asking, setAsking] = useState(false);
@@ -1223,7 +1251,7 @@ function MarkForDeletion({ shift, workshopId }: { shift: ReturnType<typeof useSh
     <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
       <p className="font-medium">
         Пометить смену {shift.shift?.number ?? ""} на удаление? Она останется в истории с пометкой,
-        удалить окончательно может только администратор.
+        окончательно её удаляют в 1С.
       </p>
       {failure ? <p className="text-destructive">{failure}</p> : null}
       <div className="flex flex-wrap gap-2">
@@ -1239,84 +1267,44 @@ function MarkForDeletion({ shift, workshopId }: { shift: ReturnType<typeof useSh
   );
 }
 
-/** Смена помечена на удаление: снять пометку может любой, удалить окончательно только администратор. */
+/**
+ * Смена помечена на удаление: снять пометку может любой. Окончательно помеченные
+ * смены удаляют в самой 1С обработкой «Удаление помеченных объектов» (Арсен, 06.11).
+ */
 function MarkedBlock({ shift, workshopId }: { shift: ReturnType<typeof useShift>; workshopId?: string }) {
   const router = useRouter();
-  const { me } = useApi1C();
-  const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
-  async function run(action: () => Promise<void>, unsupported: string) {
+  async function unmark() {
     setBusy(true);
     setFailure(null);
     try {
-      await action();
+      await shift.markDeletion(false);
+      invalidateWorkshopContext(workshopId);
     } catch (e) {
-      setFailure(notSupported(e) ? unsupported : describeError(e));
+      setFailure(notSupported(e) ? "1С не сняла пометку: на стороне 1С это ещё не включено." : describeError(e));
     } finally {
       setBusy(false);
     }
   }
 
-  const unmark = () =>
-    run(async () => {
-      await shift.markDeletion(false);
-      invalidateWorkshopContext(workshopId);
-    }, "1С не сняла пометку: на стороне 1С это ещё не включено.");
-
-  const removeForever = () =>
-    run(async () => {
-      await shift.remove();
-      invalidateWorkshopContext(workshopId);
-      router.replace("/w");
-    }, "1С не удалила смену: на стороне 1С это ещё не включено.");
-
   return (
     <Card id="close" className="scroll-mt-16 border-red-300">
       <CardContent className="space-y-3 pt-6 text-sm">
         <p className="font-medium">Смена помечена на удаление.</p>
-        <p className="text-muted-foreground">Удалить окончательно может только администратор.</p>
+        <p className="text-muted-foreground">Окончательно помеченные смены удаляют в 1С.</p>
         {failure ? <p className="text-destructive">{failure}</p> : null}
 
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" className="h-11" onClick={() => void unmark()} disabled={busy}>
-            {busy && !confirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Снять пометку
           </Button>
-          {me?.is_admin && !confirming ? (
-            <Button
-              variant="ghost"
-              className="h-11 text-destructive hover:text-destructive"
-              onClick={() => setConfirming(true)}
-              disabled={busy}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Удалить окончательно
-            </Button>
-          ) : null}
+          <Button variant="outline" className="h-11" onClick={() => router.push("/w")}>
+            К рабочему месту
+          </Button>
         </div>
-
-        {me?.is_admin && confirming ? (
-          <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 p-3">
-            <p className="font-medium">
-              Удалить смену {shift.shift?.number ?? ""} окончательно? Вернуть её будет нельзя.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="destructive" className="h-11" onClick={() => void removeForever()} disabled={busy}>
-                {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                Удалить
-              </Button>
-              <Button variant="outline" className="h-11" onClick={() => setConfirming(false)} disabled={busy}>
-                Отмена
-              </Button>
-            </div>
-          </div>
-        ) : null}
-
-        <Button variant="outline" className="h-11" onClick={() => router.push("/w")}>
-          К рабочему месту
-        </Button>
       </CardContent>
     </Card>
   );

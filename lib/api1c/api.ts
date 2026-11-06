@@ -43,11 +43,6 @@ export interface Api1C {
    * не отражённой в учёте. POST /shifts/{id}/deletion-mark с If-Match.
    */
   markShiftDeletion(shiftId: Id, mark: boolean, opts?: { version?: string }): Promise<{ ok: true; shift: Shift }>;
-  /**
-   * Удалить окончательно смену, помеченную на удаление. Только администратор.
-   * DELETE /shifts/{id} с If-Match.
-   */
-  deleteShift(shiftId: Id, opts?: { version?: string }): Promise<{ ok: true }>;
 
   listTransfers(query: TransfersQuery): Promise<Page<TransferHead>>;
   getTransfer(transferId: Id): Promise<Transfer>;

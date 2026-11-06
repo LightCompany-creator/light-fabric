@@ -164,6 +164,9 @@ const CATALOG: Record<Id, WorkshopData> = {
     work_types: [
       { id: "wt-cast6", code: "ВР-006", name: "Литьё 6-парка", unit: "пар", requires_product: true },
       { id: "wt-cast4", code: "ВР-004", name: "Литьё 4-парка", unit: "пар", requires_product: true },
+      // Сопутствующая операция: та же продукция и то же количество, что у литья,
+      // но в выпуск не идёт, только в зарплату обрезчиков.
+      { id: "wt-trim", code: "ВР-008", name: "Обрезка галош", unit: "пар", requires_product: true, issuing: false },
       // Работа без продукции бывает не только простоем.
       { id: "wt-clean", code: "ВР-098", name: "Чистка форм", unit: "ч", requires_product: false },
       idle("lit"),
@@ -546,37 +549,27 @@ function validateShift(shift: ShiftWithWorkshop): ValidationDetail[] {
 }
 
 /**
- * Второй шаг закрытия: отражение в учёте. Смену он не блокирует.
+ * Второй шаг закрытия: отражение в учёте. Смену он не блокирует: при неудаче
+ * возвращает pending с причиной, остатки при этом не меняются.
  *
- * П-1, вариант «б» (решение 29.10.2026): продукция приходуется всегда, а списание
- * материалов при нехватке ждёт разбора бухгалтерии. Такая смена остаётся pending,
- * но с отчётом производства в documents: по нему видно, что продукция уже на складе.
- * Повторное отражение продукцию второй раз не приходует.
+ * П-1, вариант «а», как в настоящей 1С: при нехватке материалов не проводится
+ * ничего, продукция ждёт разбора вместе со списанием. Вариант «б» Арсен отложил
+ * 06.11.2026. Экран смены понимает и его: pending с отчётом производства
+ * в documents значит, что продукция уже оприходована.
  */
 function reflectInAccounting(shift: ShiftWithWorkshop): ShiftAccounting {
   const workshopId = shift.workshop_id ?? "w-lit";
+  const pending = (message: string): ShiftAccounting => ({
+    status: "pending",
+    message,
+    documents: { production_report: null, payroll: null },
+  });
 
   if (isPeriodClosed(shift.date)) {
-    return {
-      status: "pending",
-      message: `Дата смены ${shift.date} попадает в закрытый период`,
-      documents: { production_report: null, payroll: null },
-    };
+    return pending(`Дата смены ${shift.date} попадает в закрытый период`);
   }
 
   const wh = whOf(workshopId);
-  const before = shift.accounting?.documents;
-  // Строки с продукцией идут в отчёт производства, без продукции в начисление ЗП.
-  const hasProduction = shift.products.length > 0 || shift.outputs.some((o) => o.product_id);
-  const hasUnproductive = shift.outputs.some((o) => !o.product_id);
-  if (!before?.production_report) {
-    for (const p of shift.products) addOn(wh.output, p.product_id, p.qty);
-  }
-  const documents = {
-    production_report: before?.production_report ?? (hasProduction ? newDocument(shift.date) : null),
-    payroll: before?.payroll ?? (hasUnproductive ? newDocument(shift.date) : null),
-  };
-
   const need = new Map<Id, number>();
   for (const m of shift.materials) need.set(m.item_id, (need.get(m.item_id) ?? 0) + m.qty);
   const needed = Array.from(need.entries());
@@ -586,15 +579,25 @@ function reflectInAccounting(shift: ShiftWithWorkshop): ShiftAccounting {
     const [itemId, qty] = short;
     const have = round(qtyOn(wh.materials, itemId));
     const unit = item(itemId).unit;
-    return {
-      status: "pending",
-      message: `Недостаточно остатка: ${item(itemId).name}, доступно ${have} ${unit}, требуется ${round(qty)} ${unit}`,
-      documents,
-    };
+    return pending(
+      `Недостаточно остатка: ${item(itemId).name}, доступно ${have} ${unit}, требуется ${round(qty)} ${unit}`,
+    );
   }
 
   for (const [itemId, qty] of needed) addOn(wh.materials, itemId, -qty);
-  return { status: "done", message: "", documents };
+  for (const p of shift.products) addOn(wh.output, p.product_id, p.qty);
+
+  // Строки с продукцией идут в отчёт производства, без продукции в начисление ЗП.
+  const hasProduction = shift.products.length > 0 || shift.outputs.some((o) => o.product_id);
+  const hasUnproductive = shift.outputs.some((o) => !o.product_id);
+  return {
+    status: "done",
+    message: "",
+    documents: {
+      production_report: hasProduction ? newDocument(shift.date) : null,
+      payroll: hasUnproductive ? newDocument(shift.date) : null,
+    },
+  };
 }
 
 function requireShift(id: Id): Shift {
@@ -700,7 +703,8 @@ export class Api1CMock implements Api1C {
       workshop,
       organization: { id: "org-1", name: "Хачатуров Арайр Владимирович ИП" },
       employees: data.employees,
-      work_types: data.work_types,
+      // Как в 1С: признак приходит всегда, по умолчанию выпускающая.
+      work_types: data.work_types.map((w) => ({ ...w, issuing: w.issuing ?? true })),
       products: data.products,
       materials: materialsFor(workshopId),
       stock: stockLines(workshopId),
@@ -973,21 +977,6 @@ export class Api1CMock implements Api1C {
     shift.version = bump(shift.version);
     persist();
     return { ok: true as const, shift: structuredClone(shift) };
-  }
-
-  async deleteShift(shiftId: Id, opts: { version?: string } = {}) {
-    await this.wait();
-    if (!this.opts.isAdmin) {
-      throw new Api1CError("forbidden", "Недостаточно прав для этого действия", 403);
-    }
-    const shift = requireShift(shiftId);
-    if (!shift.deletion_mark) {
-      throw new Api1CError("state", "Сначала смену нужно пометить на удаление", 409);
-    }
-    checkVersion(shift.version, opts.version, structuredClone(shift));
-    shifts.delete(shiftId);
-    persist();
-    return { ok: true as const };
   }
 
   // ---------- перемещения ----------

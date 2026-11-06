@@ -44,6 +44,9 @@ const EMPTY_STATE: ShiftState = {
 /** Пауза перед отправкой: контракт разрешает копить изменения. */
 const SAVE_DELAY_MS = 4000;
 
+/** Как часто повторять отправку, если 1С была недоступна. */
+const RETRY_MS = 60_000;
+
 // ---------- хранение на планшете ----------
 
 /** Черновик помнит версию 1С, от которой он отсчитан: по ней ловим расхождение. */
@@ -123,8 +126,6 @@ export type UseShift = {
   reopen: (reason: string) => Promise<void>;
   /** Поставить или снять пометку на удаление. Перед пометкой досылает несохранённое. */
   markDeletion: (mark: boolean) => Promise<void>;
-  /** Удалить окончательно помеченную смену (администратор). Черновик на планшете стирается. */
-  remove: () => Promise<void>;
   /** Повторить получение версии 1С, если при расхождении не было связи. */
   retryConflict: () => Promise<void>;
 };
@@ -148,6 +149,8 @@ export function useShift(shiftId: string, opts: { knownVersion?: string } = {}):
   const dirty = useRef(false);
   /** Расхождение не разобрано: автоотправка стоит, пока не получим версию 1С. */
   const blocked = useRef(false);
+  /** Последняя отправка упала из-за недоступности 1С, а не из-за данных: есть смысл повторять. */
+  const retriable = useRef(false);
   /** Версия из кэша контекста цеха: нужна, если смену открыли без связи. */
   const knownVersion = useRef(opts.knownVersion);
   knownVersion.current = opts.knownVersion;
@@ -251,6 +254,7 @@ export function useShift(shiftId: string, opts: { knownVersion?: string } = {}):
     try {
       const newVersion = await api.saveShift(shiftId, latest.current, versionRef.current);
       commitVersion(newVersion);
+      retriable.current = false;
       setError(null);
       if (dirty.current) {
         // Пока запрос летел, человек продолжал вводить: черновик новее, его нельзя
@@ -267,6 +271,9 @@ export function useShift(shiftId: string, opts: { knownVersion?: string } = {}):
       // Не ушло: правки по-прежнему только на планшете (черновик записан при вводе).
       failed = true;
       dirty.current = true;
+      // Нет ответа или ответ веб-сервера без тела (5xx): 1С недоступна, повторим.
+      // Отказ по данным повтором не исправить, там ждём правки человека.
+      retriable.current = e instanceof Api1COfflineError || (e instanceof Api1CError && e.code === "internal");
       if (e instanceof Api1COfflineError) {
         setSync("offline");
       } else if (e instanceof Api1CError && e.code === "conflict") {
@@ -282,7 +289,7 @@ export function useShift(shiftId: string, opts: { knownVersion?: string } = {}):
     } finally {
       saving.current = false;
       // Досылаем только правки, сделанные во время удачной отправки. После ошибки
-      // повтор по таймеру бессмыслен: ждём возврата сети или правки человека.
+      // повторяет отдельный таймер ниже, и только если 1С была недоступна.
       if (dirty.current && !blocked.current && !failed) schedule();
     }
   }, [api, shiftId, schedule, commitVersion]);
@@ -311,10 +318,32 @@ export function useShift(shiftId: string, opts: { knownVersion?: string } = {}):
   // Повторная попытка, когда сеть вернулась.
   useEffect(() => {
     function onOnline() {
-      if (sync === "offline" || sync === "pending") void pushRef.current();
+      if (sync === "offline" || sync === "pending" || (sync === "error" && retriable.current)) {
+        void pushRef.current();
+      }
     }
     window.addEventListener("online", onOnline);
     return () => window.removeEventListener("online", onOnline);
+  }, [sync]);
+
+  // Wi-Fi может быть, а 1С нет: тогда события «сеть появилась» не будет, и последние
+  // строки остались бы только на планшете (Арсен, 06.11). Поэтому пробуем раз в минуту,
+  // пока приложение открыто, и сразу, как только планшет проснулся или приложение
+  // снова на экране: при погасшем экране браузер страницу усыпляет.
+  useEffect(() => {
+    if (!(sync === "offline" || (sync === "error" && retriable.current))) return;
+    const retry = () => {
+      if (dirty.current && !blocked.current) void pushRef.current();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") retry();
+    };
+    const interval = setInterval(retry, RETRY_MS);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [sync]);
 
   // Таймер не должен пережить экран.
@@ -427,20 +456,6 @@ export function useShift(shiftId: string, opts: { knownVersion?: string } = {}):
     [api, shiftId, applyState, commitVersion],
   );
 
-  const remove = useCallback(async () => {
-    // Автосохранение останавливаем до запроса: иначе оно вернуло бы смену в 1С.
-    blocked.current = true;
-    if (timer.current) clearTimeout(timer.current);
-    try {
-      await api.deleteShift(shiftId, { version: versionRef.current });
-    } catch (e) {
-      blocked.current = false;
-      throw e;
-    }
-    dropKey(draftKey(shiftId));
-    dropKey(mineKey(shiftId));
-  }, [api, shiftId]);
-
   return {
     shift,
     state,
@@ -455,7 +470,6 @@ export function useShift(shiftId: string, opts: { knownVersion?: string } = {}):
     refresh,
     reopen,
     markDeletion,
-    remove,
     retryConflict,
   };
 }
